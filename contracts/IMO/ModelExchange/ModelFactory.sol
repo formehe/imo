@@ -53,10 +53,7 @@ contract ModelFactory is
     mapping(uint256 => Application) private _applications;
 
     event ApplicationThresholdUpdated(uint256 newThreshold);
-    event GovUpdated(address newGov);
     event ImplContractsUpdated(address token, address dao);
-
-    address private _vault; // Vault to hold all Virtual NFTs
 
     bool internal locked;
 
@@ -94,7 +91,6 @@ contract ModelFactory is
         address tokenImplementation_,
         address assetToken_,
         uint256 applicationThreshold_,
-        address vault_,
         uint256 nextId_
     ) public initializer {
         __Pausable_init();
@@ -104,7 +100,6 @@ contract ModelFactory is
         applicationThreshold = applicationThreshold_;
         _nextId = nextId_;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _vault = vault_;
     }
 
     function getApplication(
@@ -145,7 +140,6 @@ contract ModelFactory is
 
     function _executeApplication(
         uint256 id,
-        bool canStake,
         bytes memory tokenSupplyParams_
     ) internal returns (address){
         require(
@@ -199,10 +193,6 @@ contract ModelFactory is
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         applicationThreshold = newThreshold;
         emit ApplicationThresholdUpdated(newThreshold);
-    }
-
-    function setVault(address newVault) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        _vault = newVault;
     }
 
     function setImplementations(
@@ -351,7 +341,7 @@ contract ModelFactory is
             vault
         );
 
-        address token = _executeApplication(id, true, tokenSupplyParams);
+        address token = _executeApplication(id, tokenSupplyParams);
 
         return token;
     }

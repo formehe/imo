@@ -310,4 +310,6 @@ interface IErrors {
   error ValueExceedsMaximum(); //                           The value sent exceeds the maximum allowed (super useful explanation huh?).
 
   error VRFCoordinatorCannotBeAddressZero(); //             The VRF coordinator cannot be the zero address (address(0)).
+  
+  error ERC5805FutureLookup(uint256 timepoint, uint256 clock);
 }

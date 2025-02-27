@@ -200,7 +200,7 @@ contract IMOEntry is
             initialPurchase
         );
 
-        string memory tokenName = string(abi.encodePacked("fun ",  _name));
+        string memory tokenName = string(abi.encodePacked("internal ",  _name));
         InternalToken token = new InternalToken(tokenName, _ticker, initialSupply, maxTx);
         uint256 supply = token.totalSupply();
 
@@ -407,7 +407,7 @@ contract IMOEntry is
 
         IERC20(router.assetToken()).approve(agentFactory, assetBalance);
         uint256 id = IModelFactory(agentFactory).initFromBondingCurve(
-            string(abi.encodePacked(_token.data._name,  " by Virtuals")),
+            string(abi.encodePacked("models ", _token.data._name)),
             _token.data.ticker,
             assetBalance,
             _token.creator

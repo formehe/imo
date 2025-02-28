@@ -10,6 +10,7 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 import "./IModelFactory.sol";
 import "./IModelToken.sol";
+import "./IModelLockToken.sol";
 
 contract ModelFactory is
     IModelFactory,
@@ -21,7 +22,10 @@ contract ModelFactory is
 
     uint256 private _nextId;
     address public tokenImplementation;
+    address public lockTokenImplemention;
     uint256 public applicationThreshold;
+
+    address[] public allTokens;
 
     address public assetToken; // Base currency
     uint256 public maturityDuration; // Staking duration in seconds for initial LP. eg: 10years
@@ -48,6 +52,9 @@ contract ModelFactory is
         uint256 withdrawableAmount;
         address proposer;
         uint256 proposalEndBlock;
+        address token;
+        address lp;
+        address lockToken;
     }
 
     mapping(uint256 => Application) private _applications;
@@ -71,7 +78,6 @@ contract ModelFactory is
     address private _uniswapRouter;
     address private _minter; // Unused
     address private _tokenAdmin;
-    address public defaultDelegatee;
 
     // Default agent token params
     bytes private _tokenSupplyParams;
@@ -89,6 +95,7 @@ contract ModelFactory is
 
     function initialize(
         address tokenImplementation_,
+        address lockTokenImplemention_,
         address assetToken_,
         uint256 applicationThreshold_,
         uint256 nextId_
@@ -96,6 +103,7 @@ contract ModelFactory is
         __Pausable_init();
 
         tokenImplementation = tokenImplementation_;
+        lockTokenImplemention = lockTokenImplemention_;
         assetToken = assetToken_;
         applicationThreshold = applicationThreshold_;
         _nextId = nextId_;
@@ -140,8 +148,9 @@ contract ModelFactory is
 
     function _executeApplication(
         uint256 id,
-        bytes memory tokenSupplyParams_
-    ) internal returns (address){
+        bytes memory tokenSupplyParams_,
+        bool canStake
+    ) internal {
         require(
             _applications[id].status == ApplicationStatus.Active,
             "Application is not active"
@@ -155,23 +164,43 @@ contract ModelFactory is
         application.withdrawableAmount = 0;
         application.status = ApplicationStatus.Executed;
 
-        // C1
-        address token = _createNewAgentToken(
+        // step1
+        address token = _createNewModelToken(
             application.name,
             application.symbol,
             tokenSupplyParams_
         );
 
-        // C2
+        // step2
         address lp = IModelToken(token).liquidityPools()[0];
         IERC20(assetToken).safeTransfer(token, initialAmount);
         IModelToken(token).addInitialLiquidity(address(this));
 
+        // step3
+        address lockToken = _createNewModelLockToken(
+            string.concat("Staked ", application.name),
+            string.concat("s", application.symbol),
+            lp,
+            application.proposer,
+            canStake
+        );
+
+        // step4
+        IERC20(lp).approve(lockToken, type(uint256).max);
+        IModelLockToken(lockToken).stake(
+            IERC20(lp).balanceOf(address(this)),
+            application.proposer
+        );
+
+        // step5
+        application.token = token;
+        application.lockToken = lockToken;
+        application.lp = lp;
+
         emit NewPersona(token, lp);
-        return token;
     }
 
-    function _createNewAgentToken(
+    function _createNewModelToken(
         string memory name,
         string memory symbol,
         bytes memory tokenSupplyParams_
@@ -185,6 +214,27 @@ contract ModelFactory is
         );
 
         allTradingTokens.push(instance);
+        return instance;
+    }
+
+    function _createNewModelLockToken(
+        string memory name,
+        string memory symbol,
+        address stakingAsset,
+        address founder,
+        bool canStake
+    ) internal returns (address instance) {
+        instance = Clones.clone(lockTokenImplemention);
+        IModelLockToken(instance).initialize(
+            name,
+            symbol,
+            founder,
+            stakingAsset,
+            block.timestamp + maturityDuration,
+            canStake
+        );
+
+        allTokens.push(instance);
         return instance;
     }
 
@@ -310,15 +360,15 @@ contract ModelFactory is
 
         uint256 id = _nextId++;
         uint256 proposalEndBlock = block.number; // No longer required in v2
-        Application memory application = Application(
-            name,
-            symbol,
-            "",
-            ApplicationStatus.Active,
-            applicationThreshold_,
-            creator,
-            proposalEndBlock
-        );
+        Application memory application;
+        application.name = name;
+        application.symbol = symbol;
+        application.tokenURI = "";
+        application.status = ApplicationStatus.Active;
+        application.withdrawableAmount = applicationThreshold_;
+        application.proposer = creator;
+        application.proposalEndBlock = proposalEndBlock;
+        
         _applications[id] = application;
         emit NewApplication(id);
 
@@ -341,14 +391,12 @@ contract ModelFactory is
             vault
         );
 
-        address token = _executeApplication(id, tokenSupplyParams);
+        _executeApplication(id, tokenSupplyParams, true);
 
-        return token;
+        return _applications[id].token;
     }
 
-    function setDefaultDelegatee(
-        address newDelegatee
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        defaultDelegatee = newDelegatee;
+    function renounceRole(bytes32 /*role*/, address /*account*/) public pure override {
+        require(false, "not support");
     }
 }

@@ -101,4 +101,8 @@ contract InternalFactory is Initializable, AccessControlUpgradeable, ReentrancyG
     function setRouter(address router_) public onlyRole(ADMIN_ROLE) {
         router = router_;
     }
+
+    function renounceRole(bytes32 /*role*/, address /*account*/) public pure override {
+        require(false, "not support");
+    }
 }

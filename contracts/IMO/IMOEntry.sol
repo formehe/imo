@@ -30,7 +30,7 @@ contract IMOEntry is
     uint256 public assetRate;
     uint256 public gradThreshold;
     uint256 public maxTx;
-    address public agentFactory;
+    address public modelFactory;
     struct Profile {
         address user;
         address[] tokens;
@@ -40,7 +40,7 @@ contract IMOEntry is
         address creator;
         address token;
         address pair;
-        address agentToken;
+        address modelToken;
         Data data;
         string description;
         bool trading;
@@ -62,15 +62,6 @@ contract IMOEntry is
         uint256 lastUpdated;
     }
 
-    struct DeployParams {
-        bytes32 tbaSalt;
-        address tbaImplementation;
-        uint32 daoVotingPeriod;
-        uint256 daoThreshold;
-    }
-
-    DeployParams private _deployParams;
-
     mapping(address => Profile) public profile;
     address[] public profiles;
 
@@ -79,7 +70,7 @@ contract IMOEntry is
 
     event Launched(address indexed token, address indexed pair, uint);
     event Deployed(address indexed token, uint256 amount0, uint256 amount1);
-    event Graduated(address indexed token, address agentToken);
+    event Graduated(address indexed token, address modelToken);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -94,7 +85,7 @@ contract IMOEntry is
         uint256 initialSupply_,
         uint256 assetRate_,
         uint256 maxTx_,
-        address agentFactory_,
+        address modelFactory_,
         uint256 gradThreshold_
     ) external initializer {
         __Ownable_init();
@@ -110,7 +101,7 @@ contract IMOEntry is
         assetRate = assetRate_;
         maxTx = maxTx_;
 
-        agentFactory = agentFactory_;
+        modelFactory = modelFactory_;
         gradThreshold = gradThreshold_;
     }
 
@@ -163,10 +154,6 @@ contract IMOEntry is
         assetRate = newRate;
     }
 
-    function setDeployParams(DeployParams memory params) public onlyOwner {
-        _deployParams = params;
-    }
-
     function getUserTokens(
         address account
     ) public view returns (address[] memory) {
@@ -207,7 +194,7 @@ contract IMOEntry is
         address _pair = factory.createPair(address(token), assetToken);
 
         bool approved = _approval(address(router), address(token), supply);
-        require(approved);
+        require(approved, "Not approved");
 
         uint256 k = ((K * 10000) / assetRate);
         uint256 liquidity = (((k * 10000 ether) / supply) * 1 ether) / 10000;
@@ -231,7 +218,7 @@ contract IMOEntry is
         Token memory tmpToken = Token({
             creator: msg.sender,
             token: address(token),
-            agentToken: address(0),
+            modelToken: address(0),
             pair: _pair,
             data: _data,
             description: desc,
@@ -372,9 +359,9 @@ contract IMOEntry is
             specifiedToken.data.lastUpdated = block.timestamp;
         }
 
-        // if (newReserveA <= gradThreshold && specifiedToken.trading) {
-        //     _openTradingOnUniswap(tokenAddress);
-        // }
+        if (newReserveA <= gradThreshold && specifiedToken.trading) {
+            _openTradingOnUniswap(tokenAddress);
+        }
 
         return true;
     }
@@ -405,33 +392,33 @@ contract IMOEntry is
 
         router.graduate(tokenAddress);
 
-        IERC20(router.assetToken()).approve(agentFactory, assetBalance);
-        uint256 id = IModelFactory(agentFactory).initFromBondingCurve(
+        IERC20(router.assetToken()).approve(modelFactory, assetBalance);
+        uint256 id = IModelFactory(modelFactory).initFromBondingCurve(
             string(abi.encodePacked("models ", _token.data._name)),
             _token.data.ticker,
             assetBalance,
             _token.creator
         );
 
-        address agentToken = IModelFactory(agentFactory)
+        address modelToken = IModelFactory(modelFactory)
             .executeBondingCurveApplication(
                 id,
                 _token.data.supply / (10 ** token_.decimals()),
                 tokenBalance / (10 ** token_.decimals()),
                 pairAddress
             );
-        _token.agentToken = agentToken;
+        _token.modelToken = modelToken;
 
         router.approval(
             pairAddress,
-            agentToken,
+            modelToken,
             address(this),
-            IERC20(agentToken).balanceOf(pairAddress)
+            IERC20(modelToken).balanceOf(pairAddress)
         );
 
         token_.burnFrom(pairAddress, tokenBalance);
 
-        emit Graduated(tokenAddress, agentToken);
+        emit Graduated(tokenAddress, modelToken);
     }
 
     function unwrapToken(
@@ -442,17 +429,18 @@ contract IMOEntry is
         require(info.tradingOnUniswap, "Token is not graduated yet");
 
         InternalToken token = InternalToken(srcTokenAddress);
-        IERC20 agentToken = IERC20(info.agentToken);
+        IERC20 modelToken = IERC20(info.modelToken);
         address pairAddress = factory.getPair(
             srcTokenAddress,
             router.assetToken()
         );
+
         for (uint i = 0; i < accounts.length; i++) {
             address acc = accounts[i];
             uint256 balance = token.balanceOf(acc);
             if (balance > 0) {
                 token.burnFrom(acc, balance);
-                agentToken.transferFrom(pairAddress, acc, balance);
+                modelToken.transferFrom(pairAddress, acc, balance);
             }
         }
     }

@@ -1,58 +1,110 @@
 const hre = require("hardhat");
-
+const { deployAndCloneContract } = require("../tests/utils")
 async function main() {
+    [owner] = await ethers.getSigners();
+    console.log(owner.address)
+    const UNISWAP_ROUTER = "0x626459cF9438259ed0812D71650568306486CB00";
+    const BUY_TAX = 1; //%, internal swap tax
+    const SELL_TAX = 1; //%, internal swap tax
+    //address taxVault_ = //
+
     // token
     const ERC20Sample = await ethers.getContractFactory("ERC20Sample");
-    const erc20Sample = await ERC20Sample.deploy();
+    const erc20Sample = await ERC20Sample.deploy("Asset Token", "ASSET");
     await erc20Sample.deployed();
     console.log("ERC20Sample is :", erc20Sample.address)
     console.log("Transaction hash :", erc20Sample.deployTransaction.hash)
 
     // internal swap
-    const InternalFactory = await ethers.getContractFactory("InternalFactory");
-    const internalFactory = await InternalFactory.deploy();
-    await internalFactory.deployed();
-    console.log("InternalFactory is :", internalFactory.address)
-    console.log("Transaction hash :", internalFactory.deployTransaction.hash)
+    // internal factory
+    const InternalFactoryTemplate = await ethers.getContractFactory("InternalFactory");
+    const internalFactoryTemplate = await InternalFactoryTemplate.deploy();
+    await internalFactoryTemplate.deployed();
+    console.log("InternalFactoryTemplate is :", internalFactoryTemplate.address)
+    console.log("Transaction hash :", internalFactoryTemplate.deployTransaction.hash)
+    let clonedContractAddress = await deployAndCloneContract(ethers, internalFactoryTemplate.address)
+    internalFactory = await ethers.getContractAt("InternalFactory", clonedContractAddress);
+    console.log("InternalFactory is :", clonedContractAddress)
 
-    const InternalRouter = await ethers.getContractFactory("InternalRouter");
-    const internalRouter = await InternalRouter.deploy();
-    await internalRouter.deployed();
-    console.log("InternalRouter is :", internalRouter.address)
-    console.log("Transaction hash :", internalRouter.deployTransaction.hash)
-    await internalRouter.initialize(internalFactory.address, erc20Sample.address)
+    // internal router
+    const InternalRouterTemplate = await ethers.getContractFactory("InternalRouter");
+    const internalRouterTemplate = await InternalRouterTemplate.deploy();
+    await internalRouterTemplate.deployed();
+    console.log("InternalRouterTemplate is :", internalRouterTemplate.address)
+    console.log("Transaction hash :", internalRouterTemplate.deployTransaction.hash)
+    clonedContractAddress = await deployAndCloneContract(ethers, internalRouterTemplate.address)
+    internalRouter = await ethers.getContractAt("InternalRouter", clonedContractAddress);
+    console.log("InternalRouter is :", clonedContractAddress)
 
     // model token template
-    const ModelToken = await ethers.getContractFactory("ModelToken");
-    const modelToken = await ModelToken.deploy();
-    await modelToken.deployed();
-    console.log("ModelToken is :", modelToken.address)
-    console.log("Transaction hash :", modelToken.deployTransaction.hash)
+    const ModelTokenTemplate = await ethers.getContractFactory("ModelToken");
+    modelTokenTemplate = await ModelTokenTemplate.deploy();
+    await modelTokenTemplate.deployed();
+    console.log("ModelTokenTempalte is :", modelTokenTemplate.address)
+    console.log("Transaction hash :", modelTokenTemplate.deployTransaction.hash)
+    clonedContractAddress = await deployAndCloneContract(ethers, modelTokenTemplate.address);
+    modelToken = await ethers.getContractAt("ModelToken", clonedContractAddress);
+    console.log("ModelToken is :", clonedContractAddress)
 
-    const ModelLockToken = await ethers.getContractFactory("ModelLockToken");
-    const modelLockToken = await ModelLockToken.deploy();
-    await modelLockToken.deployed();
-    console.log("ModelLockToken is :", modelLockToken.address)
-    console.log("Transaction hash :", modelLockToken.deployTransaction.hash)    
-    
-    const ModelFactory = await ethers.getContractFactory("ModelFactory");
-    const modelFactory = await ModelFactory.deploy();
-    await modelFactory.deployed();
-    console.log("ModelFactory is :", modelFactory.address)
-    console.log("Transaction hash :", modelFactory.deployTransaction.hash)
+    const ModelLockTokenTemplate = await ethers.getContractFactory("ModelLockToken");
+    modelLockTokenTemplate = await ModelLockTokenTemplate.deploy();
+    await modelLockTokenTemplate.deployed();
+    console.log("ModelLockTokenTempalte is :", modelLockTokenTemplate.address)
+    console.log("Transaction hash :", modelLockTokenTemplate.deployTransaction.hash)
+    clonedContractAddress = await deployAndCloneContract(ethers, modelLockTokenTemplate.address);
+    modelLockToken = await ethers.getContractAt("ModelLockToken", clonedContractAddress);
+    console.log("ModelLockToken is :", clonedContractAddress)
+
+    const ModelFactoryTemplate = await ethers.getContractFactory("ModelFactory");
+    modelFactoryTemplate = await ModelFactoryTemplate.deploy();
+    await modelFactoryTemplate.deployed();
+    console.log("ModelFactoryTemplate is :", modelFactoryTemplate.address)
+    console.log("Transaction hash :", modelFactoryTemplate.deployTransaction.hash)
+    clonedContractAddress = await deployAndCloneContract(ethers, modelFactoryTemplate.address);
+    modelFactory = await ethers.getContractAt("ModelFactory", clonedContractAddress);
+    console.log("ModelFactory is :", clonedContractAddress)
 
     // imo platform entry
-    const IMOEntry = await ethers.getContractFactory("IMOEntry");
-    const imoEntry = await IMOEntry.deploy();
-    await imoEntry.deployed();
-    console.log("IMOEntry is :", imoEntry.address)
-    console.log("Transaction hash :", imoEntry.deployTransaction.hash)
+    const IMOEntryTemplate = await ethers.getContractFactory("IMOEntry");
+    imoEntryTemplate = await IMOEntryTemplate.deploy();
+    await imoEntryTemplate.deployed();
+    console.log("IMOEntryTemplate is :", imoEntryTemplate.address)
+    console.log("Transaction hash :", imoEntryTemplate.deployTransaction.hash)
+    clonedContractAddress = await deployAndCloneContract(ethers, imoEntryTemplate.address);
+    imoEntry = await ethers.getContractAt("IMOEntry", clonedContractAddress);
+    console.log("IMOEntry is :", clonedContractAddress)
 
-    await internalFactory.initialize(imoEntry.address /*address taxVault_*/, 1 /* %, uint256 buyTax_ */, 1 /*%， uint256 sellTax_*/)
-    await modelFactory.initialize(modelToken.address, modelLockToken.address, erc20Sample.address, 1, 1)
+    // configure erc20 asset
 
-    // await imoEntry.initialize(internalFactory.address, internalRouter.address, imoEntry.address/*address feeTo_*/, 500/** 10 **12 */, 
-    //       1000000000/* uint256 initialSupply_ */, uint256 assetRate_, 50 /*%,uint256 maxTx_*/, modelFactory.address, uint256 gradThreshold_)
+    // configure internal factory
+    await internalFactory.initialize(imoEntry.address /*address taxVault_*/, BUY_TAX, SELL_TAX)
+    await internalFactory.grantRole(await internalFactory.CREATOR_ROLE(), imoEntry.address)
+    await internalFactory.grantRole(await internalFactory.ADMIN_ROLE(), owner.address)
+    await internalFactory.connect(owner).setRouter(internalRouter.address)
+    
+    // configure internal router
+    await internalRouter.initialize(internalFactory.address, erc20Sample.address)
+    await internalRouter.grantRole(await internalRouter.EXECUTOR_ROLE(), imoEntry.address)
+
+    // configure model factory
+    await modelFactory.initialize(modelToken.address, modelLockToken.address, erc20Sample.address, 1)
+    await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
+    await modelFactory.setTokenAdmin(owner.address)
+    await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
+    await modelFactory.setTokenTaxParams(0, 0, 0, ethers.constants.AddressZero)
+
+    // configure IMOEntry
+    await imoEntry.initialize(
+      internalFactory.address, 
+      internalRouter.address, 
+      imoEntry.address /*address feeTo_*/, 
+      500 /** fee 10 **12 */, 
+      1000000000 /* uint256 initialSupply_ */, 
+      30000 /*uint256 assetRate_*/, 
+      50 /*%,uint256 maxTx_*/, 
+      modelFactory.address, 
+      ethers.utils.parseEther("100") // gradThreshold
+    )
 }
 
 main().catch((error) => {

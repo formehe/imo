@@ -10,6 +10,7 @@ import "../IUniswap/IUniswapV2Router02.sol";
 import "../IUniswap/IUniswapV2Factory.sol";
 import "./IModelToken.sol";
 import "./IModelFactory.sol";
+import "hardhat/console.sol";
 
 contract ModelToken is
     ContextUpgradeable,
@@ -36,10 +37,6 @@ contract ModelToken is
     uint16 public swapThresholdBasisPoints;
     address public pairToken; // The token used to trade for this token
 
-    /** @dev {_autoSwapInProgress} We start with {_autoSwapInProgress} ON, as we don't want to
-     * call autoswap when processing initial liquidity from this address. We turn this OFF when
-     * liquidity has been loaded, and use this bool to control processing during auto-swaps
-     * from that point onwards. */
     bool private _autoSwapInProgress;
 
     address public projectTaxRecipient;
@@ -50,25 +47,16 @@ contract ModelToken is
     string private _symbol;
     uint256 private _totalSupply;
 
-    /** @dev {_balances} Addresses balances */
     mapping(address => uint256) private _balances;
 
-    /** @dev {_allowances} Addresses allocance details */
     mapping(address => mapping(address => uint256)) private _allowances;
 
-    /** @dev {_validCallerCodeHashes} Code hashes of callers we consider valid */
     EnumerableSet.Bytes32Set private _validCallerCodeHashes;
 
-    /** @dev {_liquidityPools} Enumerable set for liquidity pool addresses */
     EnumerableSet.AddressSet private _liquidityPools;
 
     IModelFactory private _factory; // Single source of truth
 
-    /**
-     * @dev {onlyOwnerOrFactory}
-     *
-     * Throws if called by any account other than the owner, factory or pool.
-     */
     modifier onlyOwnerOrFactory() {
         if (owner() != _msgSender() && address(_factory) != _msgSender()) {
             revert CallerIsNotAdminNorFactory();
@@ -122,14 +110,6 @@ contract ModelToken is
         _autoSwapInProgress = true; // We don't want to tax initial liquidity
     }
 
-    /**
-     * @dev function {_decodeBaseParams}
-     *
-     * Decode NFT Parameters
-     *
-     * @param projectOwner_ The owner of this contract
-     * @param encodedBaseParams_ The base params encoded into a bytes array
-     */
     function _decodeBaseParams(
         address projectOwner_,
         bytes memory encodedBaseParams_
@@ -139,13 +119,6 @@ contract ModelToken is
         (_name, _symbol) = abi.decode(encodedBaseParams_, (string, string));
     }
 
-    /**
-     * @dev function {_processSupplyParams}
-     *
-     * Process provided supply params
-     *
-     * @param erc20SupplyParameters_ The supply params
-     */
     function _processSupplyParams(
         ERC20SupplyParameters memory erc20SupplyParameters_
     ) internal {
@@ -164,21 +137,9 @@ contract ModelToken is
         vault = erc20SupplyParameters_.vault;
     }
 
-    /**
-     * @dev function {_processTaxParams}
-     *
-     * Process provided tax params
-     *
-     * @param erc20TaxParameters_ The tax params
-     */
     function _processTaxParams(
         ERC20TaxParameters memory erc20TaxParameters_
     ) internal returns (bool tokenHasTax_) {
-        /**
-         * @dev If this
-         * token does NOT have tax applied then there is no need to store or read these parameters, and we can
-         * avoid this simply by checking the immutable var. Pass back the value for this var from this method.
-         */
         if (
             erc20TaxParameters_.projectBuyTaxBasisPoints == 0 &&
             erc20TaxParameters_.projectSellTaxBasisPoints == 0
@@ -195,13 +156,6 @@ contract ModelToken is
         }
     }
 
-    /**
-     * @dev function {_mintBalances}
-     *
-     * Mint initial balances
-     *
-     * @param lpMint_ The number of tokens for liquidity
-     */
     function _mintBalances(uint256 lpMint_, uint256 vaultMint_) internal {
         if (lpMint_ > 0) {
             _mint(address(this), lpMint_);
@@ -212,13 +166,6 @@ contract ModelToken is
         }
     }
 
-    /**
-     * @dev function {_createPair}
-     *
-     * Create the uniswap pair
-     *
-     * @return uniswapV2Pair_ The pair address
-     */
     function _createPair() internal returns (address uniswapV2Pair_) {
         uniswapV2Pair_ = IUniswapV2Factory(_uniswapRouter.factory()).getPair(
             address(this),
@@ -237,45 +184,24 @@ contract ModelToken is
         return (uniswapV2Pair_);
     }
 
-    /**
-     * @dev function {addInitialLiquidity}
-     *
-     * Add initial liquidity to the uniswap pair
-     *
-     * @param lpOwner The recipient of LP tokens
-     */
     function addInitialLiquidity(address lpOwner) external override onlyOwnerOrFactory {
         _addInitialLiquidity(lpOwner);
     }
 
-    /**
-     * @dev function {_addInitialLiquidity}
-     *
-     * Add initial liquidity to the uniswap pair (internal function that does processing)
-     *
-     * * @param lpOwner The recipient of LP tokens
-     */
     function _addInitialLiquidity(address lpOwner) internal {
-        // Funded date is the date of first funding. We can only add initial liquidity once. If this date is set,
-        // we cannot proceed
         if (fundedDate != 0) {
             revert InitialLiquidityAlreadyAdded();
         }
 
         fundedDate = uint32(block.timestamp);
 
-        // Can only do this if this contract holds tokens:
         if (balanceOf(address(this)) == 0) {
             revert NoTokenForLiquidityPair();
         }
 
-        // Approve the uniswap router for an inifinite amount (max uint256)
-        // This means that we don't need to worry about later incrememtal
-        // approvals on tax swaps, as the uniswap router allowance will never
-        // be decreased (see code in decreaseAllowance for reference)
         _approve(address(this), address(_uniswapRouter), type(uint256).max);
         IERC20(pairToken).approve(address(_uniswapRouter), type(uint256).max);
-        // Add the liquidity:
+
         (uint256 amountA, uint256 amountB, uint256 lpTokens) = _uniswapRouter
             .addLiquidity(
                 address(this),
@@ -296,14 +222,6 @@ contract ModelToken is
         IERC20(uniswapV2Pair).transfer(lpOwner, lpTokens);
     }
 
-    /**
-     * @dev function {isLiquidityPool}
-     *
-     * Return if an address is a liquidity pool
-     *
-     * @param queryAddress_ The address being queried
-     * @return bool The address is / isn't a liquidity pool
-     */
     function isLiquidityPool(address queryAddress_) public view override returns (bool) {
         /** @dev We check the uniswapV2Pair address first as this is an immutable variable and therefore does not need
          * to be fetched from storage, saving gas if this address IS the uniswapV2Pool. We also add this address
@@ -314,13 +232,6 @@ contract ModelToken is
             _liquidityPools.contains(queryAddress_));
     }
 
-    /**
-     * @dev function {liquidityPools}
-     *
-     * Returns a list of all liquidity pools
-     *
-     * @return liquidityPools_ a list of all liquidity pools
-     */
     function liquidityPools()
         external
         view
@@ -330,13 +241,6 @@ contract ModelToken is
         return (_liquidityPools.values());
     }
 
-    /**
-     * @dev function {addLiquidityPool} onlyOwnerOrFactory
-     *
-     * Allows the manager to add a liquidity pool to the pool enumerable set
-     *
-     * @param newLiquidityPool_ The address of the new liquidity pool
-     */
     function addLiquidityPool(
         address newLiquidityPool_
     ) public override onlyOwnerOrFactory {
@@ -353,13 +257,6 @@ contract ModelToken is
         emit LiquidityPoolAdded(newLiquidityPool_);
     }
 
-    /**
-     * @dev function {removeLiquidityPool} onlyOwnerOrFactory
-     *
-     * Allows the manager to remove a liquidity pool
-     *
-     * @param removedLiquidityPool_ The address of the old removed liquidity pool
-     */
     function removeLiquidityPool(
         address removedLiquidityPool_
     ) external override onlyOwnerOrFactory {
@@ -368,25 +265,10 @@ contract ModelToken is
         emit LiquidityPoolRemoved(removedLiquidityPool_);
     }
 
-    /**
-     * @dev function {isValidCaller}
-     *
-     * Return if an address is a valid caller
-     *
-     * @param queryHash_ The code hash being queried
-     * @return bool The address is / isn't a valid caller
-     */
     function isValidCaller(bytes32 queryHash_) public view override returns (bool) {
         return (_validCallerCodeHashes.contains(queryHash_));
     }
 
-    /**
-     * @dev function {validCallers}
-     *
-     * Returns a list of all valid caller code hashes
-     *
-     * @return validCallerHashes_ a list of all valid caller code hashes
-     */
     function validCallers()
         external
         view
@@ -396,13 +278,6 @@ contract ModelToken is
         return (_validCallerCodeHashes.values());
     }
 
-    /**
-     * @dev function {addValidCaller} onlyOwnerOrFactory
-     *
-     * Allows the owner to add the hash of a valid caller
-     *
-     * @param newValidCallerHash_ The hash of the new valid caller
-     */
     function addValidCaller(
         bytes32 newValidCallerHash_
     ) external override onlyOwnerOrFactory {
@@ -410,13 +285,6 @@ contract ModelToken is
         emit ValidCallerAdded(newValidCallerHash_);
     }
 
-    /**
-     * @dev function {removeValidCaller} onlyOwnerOrFactory
-     *
-     * Allows the owner to remove a valid caller
-     *
-     * @param removedValidCallerHash_ The hash of the old removed valid caller
-     */
     function removeValidCaller(
         bytes32 removedValidCallerHash_
     ) external override onlyOwnerOrFactory {
@@ -425,13 +293,6 @@ contract ModelToken is
         emit ValidCallerRemoved(removedValidCallerHash_);
     }
 
-    /**
-     * @dev function {setProjectTaxRecipient} onlyOwnerOrFactory
-     *
-     * Allows the manager to set the project tax recipient address
-     *
-     * @param projectTaxRecipient_ New recipient address
-     */
     function setProjectTaxRecipient(
         address projectTaxRecipient_
     ) external override onlyOwnerOrFactory {
@@ -439,13 +300,6 @@ contract ModelToken is
         emit ProjectTaxRecipientUpdated(projectTaxRecipient_);
     }
 
-    /**
-     * @dev function {setSwapThresholdBasisPoints} onlyOwnerOrFactory
-     *
-     * Allows the manager to set the autoswap threshold
-     *
-     * @param swapThresholdBasisPoints_ New swap threshold in basis points
-     */
     function setSwapThresholdBasisPoints(
         uint16 swapThresholdBasisPoints_
     ) external override onlyOwnerOrFactory {
@@ -457,14 +311,6 @@ contract ModelToken is
         );
     }
 
-    /**
-     * @dev function {setProjectTaxRates} onlyOwnerOrFactory
-     *
-     * Change the tax rates, subject to only ever decreasing
-     *
-     * @param newProjectBuyTaxBasisPoints_ The new buy tax rate
-     * @param newProjectSellTaxBasisPoints_ The new sell tax rate
-     */
     function setProjectTaxRates(
         uint16 newProjectBuyTaxBasisPoints_,
         uint16 newProjectSellTaxBasisPoints_
@@ -483,59 +329,26 @@ contract ModelToken is
         );
     }
 
-    /**
-     * @dev Returns the name of the token.
-     */
     function name() public view virtual override returns (string memory) {
         return _name;
     }
 
-    /**
-     * @dev Returns the symbol of the token, usually a shorter version of the
-     * name.
-     */
     function symbol() public view virtual override returns (string memory) {
         return _symbol;
     }
 
-    /**
-     * @dev Returns the number of decimals used to get its user representation.
-     * For example, if `decimals` equals `2`, a balance of `505` tokens should
-     * be displayed to a user as `5.05` (`505 / 10 ** 2`).
-     *
-     * Tokens usually opt for a value of 18, imitating the relationship between
-     * Ether and Wei. This is the default value returned by this function, unless
-     * it's overridden.
-     *
-     * NOTE: This information is only used for _display_ purposes: it in
-     * no way affects any of the arithmetic of the contract, including
-     * {IERC20-balanceOf} and {IERC20-transfer}.
-     */
     function decimals() public view virtual override returns (uint8) {
         return 18;
     }
 
-    /**
-     * @dev See {IERC20-totalSupply}.
-     */
     function totalSupply() public view virtual override returns (uint256) {
         return _totalSupply;
     }
 
-    /**
-     * @dev totalBuyTaxBasisPoints
-     *
-     * Provide easy to view tax total:
-     */
     function totalBuyTaxBasisPoints() public view override returns (uint256) {
         return projectBuyTaxBasisPoints;
     }
 
-    /**
-     * @dev totalSellTaxBasisPoints
-     *
-     * Provide easy to view tax total:
-     */
     function totalSellTaxBasisPoints() public view override returns (uint256) {
         return projectSellTaxBasisPoints;
     }
@@ -642,15 +455,6 @@ contract ModelToken is
         _afterTokenTransfer(from, to, amount);
     }
 
-    /**
-     * @dev function {_pretaxValidationAndLimits}
-     *
-     * Perform validation on pre-tax amounts
-     *
-     * @param from_ From address for the transaction
-     * @param to_ To address for the transaction
-     * @param amount_ Amount of the transaction
-     */
     function _pretaxValidationAndLimits(
         address from_,
         address to_,
@@ -686,17 +490,6 @@ contract ModelToken is
         return (fromBalance_);
     }
 
-    /**
-     * @dev function {_taxProcessing}
-     *
-     * Perform tax processing
-     *
-     * @param applyTax_ Do we apply tax to this transaction?
-     * @param to_ The reciever of the token
-     * @param from_ The sender of the token
-     * @param sentAmount_ The amount being send
-     * @return amountLessTax_ The amount that will be recieved, i.e. the send amount minus tax
-     */
     function _taxProcessing(
         bool applyTax_,
         address to_,
@@ -739,15 +532,6 @@ contract ModelToken is
         return (amountLessTax_);
     }
 
-    /**
-     * @dev function {_autoSwap}
-     *
-     * Automate the swap of accumulated tax fees to native token
-     *
-     * @param from_ The sender of the token
-     * @param to_ The recipient of the token
-     */
-
     function _autoSwap(address from_, address to_) internal {
         if (_tokenHasTax) {
             uint256 contractBalance = balanceOf(address(this));
@@ -778,16 +562,6 @@ contract ModelToken is
         }
     }
 
-    /**
-     * @dev function {_eligibleForSwap}
-     *
-     * Is the current transfer eligible for autoswap
-     *
-     * @param from_ The sender of the token
-     * @param to_ The recipient of the token
-     * @param taxBalance_ The current accumulated tax balance
-     * @param swapThresholdInTokens_ The swap threshold as a token amount
-     */
     function _eligibleForSwap(
         address from_,
         address to_,
@@ -801,14 +575,6 @@ contract ModelToken is
             to_ != address(_uniswapRouter));
     }
 
-    /**
-     * @dev function {_swapTax}
-     *
-     * Swap tokens taken as tax for pair token
-     *
-     * @param swapBalance_ The current accumulated tax balance to swap
-     * @param contractBalance_ The current accumulated total tax balance
-     */
     function _swapTax(uint256 swapBalance_, uint256 contractBalance_) internal {
         address[] memory path = new address[](2);
         path[0] = address(this);
@@ -908,22 +674,6 @@ contract ModelToken is
         }
     }
 
-    /**
-     * @dev function {withdrawERC20} onlyOwnerOrFactory
-     *
-     * A withdraw function to allow ERC20s (except address(this)) to be withdrawn.
-     *
-     * This contract should never hold ERC20s other than tax tokens. The only envisaged
-     * scenario where it might hold an ERC20 is a failed autoswap where the uniswap swap
-     * has completed, the recipient of ETH reverts, the contract then wraps to WETH, the
-     * wrap to WETH succeeds, BUT then the transfer of WETH fails.
-     *
-     * This feels even less likely than the scenario where ETH is held on the contract.
-     * But, for safety, we include this method.
-     *
-     * @param token_ The ERC20 contract
-     * @param amount_ The amount to withdraw
-     */
     function withdrawERC20(
         address token_,
         uint256 amount_
@@ -960,17 +710,6 @@ contract ModelToken is
         _afterTokenTransfer(address(0), account, amount);
     }
 
-    /**
-     * @dev Destroys `amount` tokens from `account`, reducing the
-     * total supply.
-     *
-     * Emits a {Transfer} event with `to` set to the zero address.
-     *
-     * Requirements:
-     *
-     * - `account` cannot be the zero address.
-     * - `account` must have at least `amount` tokens.
-     */
     function _burn(address account, uint256 amount) internal virtual {
         if (account == address(0)) {
             revert BurnFromTheZeroAddress();
@@ -994,19 +733,6 @@ contract ModelToken is
         _afterTokenTransfer(account, address(0), amount);
     }
 
-    /**
-     * @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
-     *
-     * This internal function is equivalent to `approve`, and can be used to
-     * e.g. set automatic allowances for certain subsystems, etc.
-     *
-     * Emits an {Approval} event.
-     *
-     * Requirements:
-     *
-     * - `owner` cannot be the zero address.
-     * - `spender` cannot be the zero address.
-     */
     function _approve(
         address owner,
         address spender,
@@ -1024,14 +750,6 @@ contract ModelToken is
         emit Approval(owner, spender, amount);
     }
 
-    /**
-     * @dev Updates `owner` s allowance for `spender` based on spent `amount`.
-     *
-     * Does not update the allowance amount in case of infinite allowance.
-     * Revert if not enough allowance is available.
-     *
-     * Might emit an {Approval} event.
-     */
     function _spendAllowance(
         address owner,
         address spender,
@@ -1049,65 +767,21 @@ contract ModelToken is
         }
     }
 
-    /**
-     * @dev Destroys a `value` amount of tokens from the caller.
-     *
-     * See {ERC20-_burn}.
-     */
     function burn(uint256 value) public override {
         _burn(_msgSender(), value);
     }
 
-    /**
-     * @dev Destroys a `value` amount of tokens from `account`, deducting from
-     * the caller's allowance.
-     *
-     * See {ERC20-_burn} and {ERC20-allowance}.
-     *
-     * Requirements:
-     *
-     * - the caller must have allowance for ``accounts``'s tokens of at least
-     * `value`.
-     */
     function burnFrom(address account, uint256 value) public override {
         _spendAllowance(account, _msgSender(), value);
         _burn(account, value);
     }
 
-    /**
-     * @dev Hook that is called before any transfer of tokens. This includes
-     * minting and burning.
-     *
-     * Calling conditions:
-     *
-     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
-     * will be transferred to `to`.
-     * - when `from` is zero, `amount` tokens will be minted for `to`.
-     * - when `to` is zero, `amount` of ``from``'s tokens will be burned.
-     * - `from` and `to` are never both zero.
-     *
-     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
-     */
     function _beforeTokenTransfer(
         address from,
         address to,
         uint256 amount
     ) internal virtual {}
 
-    /**
-     * @dev Hook that is called after any transfer of tokens. This includes
-     * minting and burning.
-     *
-     * Calling conditions:
-     *
-     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
-     * has been transferred to `to`.
-     * - when `from` is zero, `amount` tokens have been minted for `to`.
-     * - when `to` is zero, `amount` of ``from``'s tokens have been burned.
-     * - `from` and `to` are never both zero.
-     *
-     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
-     */
     function _afterTokenTransfer(
         address from,
         address to,

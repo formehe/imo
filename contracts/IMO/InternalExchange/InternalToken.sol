@@ -57,8 +57,10 @@ contract InternalToken is ERC20, Ownable {
         address /*to*/,
         uint256 amount
     ) internal override view {
-        if (!isExcludedFromMaxTx[from]) {
-            require(amount <= _maxTxAmount, "Exceeds MaxTx");
+        if (from != address(0)) {
+            if (!isExcludedFromMaxTx[from]) {
+                require(amount <= _maxTxAmount, "Exceeds MaxTx");
+            }
         }
     }
 

@@ -20,10 +20,9 @@ contract ModelFactory is
 {
     using SafeERC20 for IERC20;
 
-    uint256 private _nextId;
+    uint256 public nextId;
     address public tokenImplementation;
     address public lockTokenImplemention;
-    uint256 public applicationThreshold;
 
     address[] public allTokens;
 
@@ -59,7 +58,6 @@ contract ModelFactory is
 
     mapping(uint256 => Application) private _applications;
 
-    event ApplicationThresholdUpdated(uint256 newThreshold);
     event ImplContractsUpdated(address token, address dao);
 
     bool internal locked;
@@ -80,7 +78,6 @@ contract ModelFactory is
     address private _tokenAdmin;
 
     // Default agent token params
-    bytes private _tokenSupplyParams;
     bytes private _tokenTaxParams;
     uint16 private _tokenMultiplier; // Unused
 
@@ -97,7 +94,6 @@ contract ModelFactory is
         address tokenImplementation_,
         address lockTokenImplemention_,
         address assetToken_,
-        uint256 applicationThreshold_,
         uint256 nextId_
     ) public initializer {
         __Pausable_init();
@@ -105,8 +101,7 @@ contract ModelFactory is
         tokenImplementation = tokenImplementation_;
         lockTokenImplemention = lockTokenImplemention_;
         assetToken = assetToken_;
-        applicationThreshold = applicationThreshold_;
-        _nextId = nextId_;
+        nextId = nextId_;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
@@ -238,13 +233,6 @@ contract ModelFactory is
         return instance;
     }
 
-    function setApplicationThreshold(
-        uint256 newThreshold
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        applicationThreshold = newThreshold;
-        emit ApplicationThresholdUpdated(newThreshold);
-    }
-
     function setImplementations(
         address token
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -267,26 +255,6 @@ contract ModelFactory is
         address newTokenAdmin
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         _tokenAdmin = newTokenAdmin;
-    }
-
-    function setTokenSupplyParams(
-        uint256 maxSupply,
-        uint256 lpSupply,
-        uint256 vaultSupply,
-        uint256 maxTokensPerWallet,
-        uint256 maxTokensPerTxn,
-        uint256 botProtectionDurationInSeconds,
-        address vault
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        _tokenSupplyParams = abi.encode(
-            maxSupply,
-            lpSupply,
-            vaultSupply,
-            maxTokensPerWallet,
-            maxTokensPerTxn,
-            botProtectionDurationInSeconds,
-            vault
-        );
     }
 
     function setTokenTaxParams(
@@ -358,7 +326,7 @@ contract ModelFactory is
             applicationThreshold_
         );
 
-        uint256 id = _nextId++;
+        uint256 id = nextId++;
         uint256 proposalEndBlock = block.number; // No longer required in v2
         Application memory application;
         application.name = name;

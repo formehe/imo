@@ -50,7 +50,7 @@ contract ModelLockToken is IModelLockToken, ERC20Upgradeable, IErrors{
     }
 
     // Stakers have to stake their tokens and delegate to a validator
-    function stake(uint256 amount, address receiver) public {
+    function stake(uint256 amount, address receiver) public noReentrant {
         require(
             canStake || totalSupply() == 0,
             "Staking is disabled for private agent"
@@ -68,6 +68,7 @@ contract ModelLockToken is IModelLockToken, ERC20Upgradeable, IErrors{
         );
 
         if (totalSupply() == 0) {
+            require(receiver == founder, "First stake must be founder");
             initialLock = amount;
         }
 

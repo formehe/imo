@@ -175,7 +175,7 @@ contract InternalRouter is
         require(tokenAddress != address(0), "Zero addresses are not allowed.");
         address pair = factory.getPair(tokenAddress, assetToken);
         uint256 assetBalance = IInternalPair(pair).assetBalance();
-        InternalPair(pair).transferAsset(msg.sender, assetBalance);
+        IInternalPair(pair).transferAsset(msg.sender, assetBalance);
     }
 
     function approval(

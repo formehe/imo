@@ -60,7 +60,7 @@ contract InternalFactory is Initializable, AccessControlUpgradeable, ReentrancyG
         _pair[tokenB][tokenA] = address(pair_);
 
         pairs.push(address(pair_));
-        uint n = pairs.length;
+        uint256 n = pairs.length;
         emit PairCreated(tokenA, tokenB, address(pair_), n);
 
         return address(pair_);

@@ -117,7 +117,7 @@ contract InternalRouter is
 
         token.safeTransferFrom(to, pairAddress, amountIn);
 
-        uint fee = factory.sellTax();
+        uint256 fee = factory.sellTax();
         uint256 txFee = (fee * amountOut) / 100;
 
         uint256 amount = amountOut - txFee;
@@ -146,7 +146,7 @@ contract InternalRouter is
 
         address pair = factory.getPair(tokenAddress, assetToken);
 
-        uint fee = factory.buyTax();
+        uint256 fee = factory.buyTax();
         uint256 txFee = (fee * amountIn) / 100;
         address feeTo = factory.taxVault();
 

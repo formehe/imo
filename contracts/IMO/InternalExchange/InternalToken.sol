@@ -5,18 +5,18 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract InternalToken is ERC20, Ownable {
-    uint public maxTx;
+    uint256 public maxTx;
     uint256 private _maxTxAmount;
     uint256 private _totalSupply;
     mapping(address => bool) private isExcludedFromMaxTx;
 
-    event MaxTxUpdated(uint _maxTx);
+    event MaxTxUpdated(uint256 _maxTx);
 
     constructor(
         string memory name_,
         string memory symbol_,
         uint256 supply,
-        uint _maxTx
+        uint256 _maxTx
     ) ERC20(name_, symbol_) Ownable() {
         _totalSupply = supply * 10 ** 18;
         _mint(msg.sender, _totalSupply);
@@ -32,7 +32,7 @@ contract InternalToken is ERC20, Ownable {
         return _totalSupply;
     }
 
-    function _updateMaxTx(uint _maxTx) internal {
+    function _updateMaxTx(uint256 _maxTx) internal {
         maxTx = _maxTx;
         _maxTxAmount = (maxTx * _totalSupply) / 100;
 

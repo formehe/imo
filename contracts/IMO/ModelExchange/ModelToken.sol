@@ -10,7 +10,6 @@ import "../IUniswap/IUniswapV2Router02.sol";
 import "../IUniswap/IUniswapV2Factory.sol";
 import "./IModelToken.sol";
 import "./IModelFactory.sol";
-import "hardhat/console.sol";
 
 contract ModelToken is
     ContextUpgradeable,

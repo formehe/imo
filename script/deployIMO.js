@@ -6,6 +6,9 @@ async function main() {
     const UNISWAP_ROUTER = "0x626459cF9438259ed0812D71650568306486CB00";
     const BUY_TAX = 1; //%, internal swap tax
     const SELL_TAX = 1; //%, internal swap tax
+    const MATURITY_DURATION = 315360000;// 10 years
+    let   assetAddress;
+    let   tokenAdmin = owner.address;
     //address taxVault_ = //
 
     // token
@@ -14,6 +17,8 @@ async function main() {
     await erc20Sample.deployed();
     console.log("ERC20Sample is :", erc20Sample.address)
     console.log("Transaction hash :", erc20Sample.deployTransaction.hash)
+
+    assetAddress = erc20Sample.address
 
     // internal swap
     // internal factory
@@ -83,15 +88,16 @@ async function main() {
     await internalFactory.connect(owner).setRouter(internalRouter.address)
     
     // configure internal router
-    await internalRouter.initialize(internalFactory.address, erc20Sample.address)
+    await internalRouter.initialize(internalFactory.address, assetAddress)
     await internalRouter.grantRole(await internalRouter.EXECUTOR_ROLE(), imoEntry.address)
 
     // configure model factory
-    await modelFactory.initialize(modelToken.address, modelLockToken.address, erc20Sample.address, 1)
+    await modelFactory.initialize(modelToken.address, modelLockToken.address, assetAddress, 1/* next id */)
     await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
-    await modelFactory.setTokenAdmin(owner.address)
+    await modelFactory.setTokenAdmin(tokenAdmin)
     await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
-    await modelFactory.setTokenTaxParams(0, 0, 0, ethers.constants.AddressZero)
+    await modelFactory.setTokenTaxParams(0, 0, 0, ethers.constants.AddressZero) // set extra external swap tax
+    await modelFactory.setMaturityDuration(MATURITY_DURATION) //set 10 years of initial asset lock time
 
     // configure IMOEntry
     await imoEntry.initialize(
@@ -100,10 +106,10 @@ async function main() {
       imoEntry.address /*address feeTo_*/, 
       500 /** fee 10 **12 */, 
       1000000000 /* uint256 initialSupply_ */, 
-      30000 /*uint256 assetRate_*/, 
-      50 /*%,uint256 maxTx_*/, 
+      30000 /*uint256 assetRate_, 100 top -> 10^12 liquid K*/, 
+      50 /* %,uint256 maxTx_ */, 
       modelFactory.address, 
-      ethers.utils.parseEther("100") // gradThreshold
+      ethers.utils.parseEther("1000000") // gradThreshold
     )
 }
 

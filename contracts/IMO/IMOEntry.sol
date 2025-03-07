@@ -434,7 +434,7 @@ contract IMOEntry is
             router.assetToken()
         );
 
-        for (uint i = 0; i < accounts.length; i++) {
+        for (uint256 i = 0; i < accounts.length; i++) {
             address acc = accounts[i];
             uint256 balance = token.balanceOf(acc);
             if (balance > 0) {

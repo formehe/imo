@@ -104,7 +104,6 @@ describe("ModelLockToken", function () {
 
     it("should not allow withdrawing before maturity if founder is withdrawing", async function () {
       const founderBalanceBefore = await modelLockToken.balanceOf(founder.address);
-      console.log(await assetToken.balanceOf(founder.address))
       await expect(
         modelLockToken.connect(founder).withdraw(stakeAmount)
       ).to.be.revertedWith("Not mature yet");
@@ -112,14 +111,12 @@ describe("ModelLockToken", function () {
     });
 
     it("should allow founder to withdraw after maturity", async function () {
-      console.log(await assetToken.balanceOf(founder.address))
       // Fast-forward time to maturity
       await ethers.provider.send("evm_increaseTime", [maturityDuration]);
       await ethers.provider.send("evm_mine", []);
 
       await modelLockToken.connect(founder).withdraw(stakeAmount);
       expect(await modelLockToken.balanceOf(founder.address)).to.equal(0);
-      console.log(await assetToken.balanceOf(founder.address))
     });
   });
 

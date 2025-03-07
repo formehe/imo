@@ -105,13 +105,10 @@ describe("ModelFactory Contract", function () {
     const lpSupply = ethers.utils.parseEther("5000").div(BigNumber.from(10).pow(uint));
     const vault = addr2.address;
 
-    console.log(totalSupply)
-
     await modelFactory.setTokenAdmin(addr2.address)
 
     const tokenAddress = await modelFactory.connect(addr1).callStatic["executeBondingCurveApplication(uint256,uint256,uint256,address)"](id, totalSupply, lpSupply, vault)
     await modelFactory.connect(addr1).executeBondingCurveApplication(id, totalSupply, lpSupply, vault);
-    // console.log(tokenAddress)
 
     const token = await ethers.getContractAt("ModelToken", tokenAddress);
     expect(await token.name()).to.equal(name);

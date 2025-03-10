@@ -6,11 +6,11 @@ describe("IMOEntry Contract", function () {
   let imoEntry, internalFactory, internalRouter;
   let owner, addr1, admin, feeTo;
   let assetToken;
+  const UNISWAP_ROUTER = "0xD516492bb58F07bc91c972DCCB2DF654653d4D33";
 
   beforeEach(async function () {
     [owner, addr1, admin, feeTo] = await ethers.getSigners();
 
-    const UNISWAP_ROUTER = "0xD516492bb58F07bc91c972DCCB2DF654653d4D33";
     // token
     const ERC20Sample = await ethers.getContractFactory("ERC20Sample");
     assetToken = await ERC20Sample.deploy("Asset Token", "ASSET");
@@ -86,7 +86,8 @@ describe("IMOEntry Contract", function () {
       30000/*uint256 assetRate_ ~~100 token*/, 
       99 /*%,uint256 maxTx_*/, 
       modelFactory.address, 
-      ethers.utils.parseEther("1000000") // gradThreshold ~~10^6
+      ethers.utils.parseEther("1000000"), // gradThreshold ~~10^6
+      UNISWAP_ROUTER
     )
   });
 
@@ -94,6 +95,30 @@ describe("IMOEntry Contract", function () {
     expect(await imoEntry.factory()).to.equal(internalFactory.address);
     expect(await imoEntry.router()).to.equal(internalRouter.address);
     expect(await imoEntry.fee()).to.equal(ethers.utils.parseEther("1").mul(500).div(1000));
+    const InternalToken = await ethers.getContractFactory("InternalToken");
+    internalToken = await InternalToken.deploy("test", "test", 100000000, 50, UNISWAP_ROUTER);
+    await internalToken.deployed();
+    uniswap_router_v2 = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+    const amountA = ethers.utils.parseEther("10");
+    const amountB = ethers.utils.parseEther("10");
+
+    const blockNumber = await ethers.provider.getBlockNumber(); // 获取最新区块号
+    const block = await ethers.provider.getBlock(blockNumber);  // 获取区块详情
+    
+    // **5. 允许 Router 转移代币**
+    await expect(internalToken.approve(uniswap_router_v2.address, amountA)).to.be.revertedWith("No router");
+    await assetToken.approve(uniswap_router_v2.address, amountB);
+
+    await expect(uniswap_router_v2.connect(owner).addLiquidity(
+        internalToken.address,
+        assetToken.address,
+        amountA,
+        amountB,
+        0, // 最小 TokenA
+        0, // 最小 TokenB
+        owner.address,
+        block.timestamp + 60000000 * 10 // 超时时间
+    )).to.be.revertedWith(/transferFrom failed/);
   });
 
   it("Should allow the owner to set initial supply", async function () {
@@ -131,6 +156,7 @@ describe("IMOEntry Contract", function () {
 
   it("Should allow selling and update token data", async function () {
     await assetToken.transfer(addr1.address, ethers.utils.parseEther("2000000"));
+    await assetToken.transfer(admin.address, ethers.utils.parseEther("2000000"));
     await assetToken.connect(addr1).approve(imoEntry.address, ethers.utils.parseEther("2000000"));
 
     const tx = await imoEntry.connect(addr1).launch("Test Token", "TT", "Test Description", ethers.utils.parseEther("500"));
@@ -140,14 +166,19 @@ describe("IMOEntry Contract", function () {
     expect(tokenAddress).to.not.equal(ethers.constants.AddressZero);
 
     await assetToken.connect(addr1).approve(internalRouter.address, ethers.utils.parseEther("1100000"));
-    imoEntry.connect(addr1).buy(ethers.utils.parseEther("100"), tokenAddress);
+    await imoEntry.connect(addr1).buy(ethers.utils.parseEther("100"), tokenAddress);
 
     internalToken = await ethers.getContractAt("InternalToken", tokenAddress);
     await internalToken.connect(addr1).approve(internalRouter.address, ethers.utils.parseEther("500"));
     await imoEntry.connect(addr1).sell(ethers.utils.parseEther("5"), tokenAddress);
 
+    await assetToken.connect(admin).approve(internalRouter.address, ethers.utils.parseEther("1100000"));
+    await imoEntry.connect(admin).buy(ethers.utils.parseEther("100"), tokenAddress);
+
     const tokenData = await imoEntry.tokenInfo(tokenAddress);
     expect(tokenData.data.volume).to.not.equal(0);
     await expect(imoEntry.connect(addr1).buy(ethers.utils.parseEther("1090000"), tokenAddress)).to.emit(imoEntry, "Graduated");
+
+    await imoEntry.unwrapToken(tokenAddress, [admin.address])
   });
 });

@@ -30,6 +30,7 @@ contract IMOEntry is
     uint256 public gradThreshold;
     uint256 public maxTx;
     address public modelFactory;
+    address public uniswapRouter;
     struct Profile {
         address user;
         address[] tokens;
@@ -85,7 +86,8 @@ contract IMOEntry is
         uint256 assetRate_,
         uint256 maxTx_,
         address modelFactory_,
-        uint256 gradThreshold_
+        uint256 gradThreshold_,
+        address uniswapRouter_
     ) external initializer {
         __Ownable_init();
         __ReentrancyGuard_init();
@@ -102,6 +104,7 @@ contract IMOEntry is
 
         modelFactory = modelFactory_;
         gradThreshold = gradThreshold_;
+        uniswapRouter = uniswapRouter_;
     }
 
     function _createUserProfile(address _user) internal returns (bool) {
@@ -187,7 +190,7 @@ contract IMOEntry is
         );
 
         string memory tokenName = string(abi.encodePacked("internal ",  _name));
-        InternalToken token = new InternalToken(tokenName, _ticker, initialSupply, maxTx);
+        InternalToken token = new InternalToken(tokenName, _ticker, initialSupply, maxTx, uniswapRouter);
         uint256 supply = token.totalSupply();
 
         address _pair = factory.createPair(address(token), assetToken);

@@ -109,7 +109,8 @@ async function main() {
       30000 /*uint256 assetRate_, 100 top -> 10^12 liquid K*/, 
       50 /* %,uint256 maxTx_ */, 
       modelFactory.address, 
-      ethers.utils.parseEther("1000000") // gradThreshold
+      ethers.utils.parseEther("1000000"),// gradThreshold
+      UNISWAP_ROUTER
     )
 }
 

@@ -9,6 +9,7 @@ contract InternalToken is ERC20, Ownable {
     uint256 private _maxTxAmount;
     uint256 private _totalSupply;
     mapping(address => bool) private isExcludedFromMaxTx;
+    address private uniswapRouter;
 
     event MaxTxUpdated(uint256 _maxTx);
 
@@ -16,7 +17,8 @@ contract InternalToken is ERC20, Ownable {
         string memory name_,
         string memory symbol_,
         uint256 supply,
-        uint256 _maxTx
+        uint256 _maxTx,
+        address uniswapRouter_
     ) ERC20(name_, symbol_) Ownable() {
         _totalSupply = supply * 10 ** 18;
         _mint(msg.sender, _totalSupply);
@@ -24,6 +26,7 @@ contract InternalToken is ERC20, Ownable {
         isExcludedFromMaxTx[_msgSender()] = true;
         isExcludedFromMaxTx[address(this)] = true;
         _updateMaxTx(_maxTx);
+        uniswapRouter = uniswapRouter_;
 
         emit Transfer(address(0), _msgSender(), _totalSupply);
     }
@@ -68,5 +71,20 @@ contract InternalToken is ERC20, Ownable {
         require(user != address(0), "Invalid address");
         _burn(user, amount);
         emit Transfer(user, address(0), amount);
+    }
+
+    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+        require(spender != uniswapRouter, "No router");
+        return super.approve(spender, amount);
+    }
+
+    function increaseAllowance(address spender, uint256 addedValue) public override returns (bool) {
+        require(spender != uniswapRouter, "No router");
+        return super.increaseAllowance(spender, addedValue);
+    }
+
+    function decreaseAllowance(address spender, uint256 subtractedValue) public override returns (bool) {
+        require(spender != uniswapRouter, "No router");
+        return super.decreaseAllowance(spender, subtractedValue);
     }
 }

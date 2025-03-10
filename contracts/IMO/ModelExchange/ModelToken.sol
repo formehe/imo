@@ -21,8 +21,6 @@ contract ModelToken is
     using SafeERC20 for IERC20;
 
     uint256 internal constant BP_DENOM = 10_000;
-    uint256 internal constant ROUND_DEC = 100_000_000_000;
-    uint256 internal constant CALL_GAS_LIMIT = 50_000;
     uint256 internal constant MAX_SWAP_THRESHOLD_MULTIPLE = 20;
 
     address public uniswapV2Pair;

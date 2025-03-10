@@ -10,6 +10,7 @@ describe("InternalRouter Contract", function () {
     const buyTax  = 2;  // 2% 购买税
     const sellTax = 3; // 3% 卖出税
     const totalSupply = 10000000000;
+    const UNISWAP_ROUTER = "0xD516492bb58F07bc91c972DCCB2DF654653d4D33";
 
     beforeEach(async function () {
         [owner, executor, user1, user2, taxVault, creator, admin] = await ethers.getSigners();
@@ -19,7 +20,7 @@ describe("InternalRouter Contract", function () {
         await assetToken.deployed();
 
         const InternalToken = await ethers.getContractFactory("InternalToken");
-        internalToken = await InternalToken.deploy("TokenA", "TKA", totalSupply, 1);
+        internalToken = await InternalToken.deploy("TokenA", "TKA", totalSupply, 1, UNISWAP_ROUTER);
         await internalToken.deployed();
 
         const InternalFactoryTemplate = await ethers.getContractFactory("InternalFactory");

@@ -11,6 +11,7 @@ import "./InternalExchange/IInternalPair.sol";
 import "./InternalExchange/InternalRouter.sol";
 import "./InternalExchange/InternalToken.sol";
 import "./ModelExchange/IModelFactory.sol";
+import "../AI/AIModels.sol";
 
 contract IMOEntry is
     Initializable,
@@ -31,6 +32,7 @@ contract IMOEntry is
     uint256 public maxTx;
     address public modelFactory;
     address public uniswapRouter;
+    AIModels public aiModels;
     struct Profile {
         address user;
         address[] tokens;
@@ -45,6 +47,7 @@ contract IMOEntry is
         string description;
         bool trading;
         bool tradingOnUniswap;
+        uint256 modelId;
     }
 
     struct Data {
@@ -68,7 +71,7 @@ contract IMOEntry is
     mapping(address => Token) public tokenInfo;
     address[] public tokenInfos;
 
-    event Launched(address indexed token, address indexed pair, uint);
+    event Launched(address indexed token, address indexed pair, uint tokenLenth, uint256 modelId);
     event Deployed(address indexed token, uint256 amount0, uint256 amount1);
     event Graduated(address indexed token, address modelToken);
 
@@ -87,13 +90,15 @@ contract IMOEntry is
         uint256 maxTx_,
         address modelFactory_,
         uint256 gradThreshold_,
-        address uniswapRouter_
+        address uniswapRouter_,
+        address aiModels_
     ) external initializer {
         __Ownable_init();
         __ReentrancyGuard_init();
 
         factory = InternalFactory(factory_);
         router = InternalRouter(router_);
+        aiModels = AIModels(aiModels_);
 
         _feeTo = feeTo_;
         fee = (fee_ * 1 ether) / 1000;
@@ -170,12 +175,18 @@ contract IMOEntry is
         string calldata _name,
         string calldata _ticker,
         string calldata desc,
-        uint256 purchaseAmount
+        uint256 purchaseAmount,
+        bytes calldata modelInfo //abi.encode(string calldata modelName, string calldata modelVersion, string calldata modelInfo)
     ) public nonReentrant returns (address, address, uint) {
         require(
             purchaseAmount > fee,
             "Purchase amount must be greater than fee"
         );
+
+        (string memory modelName, string memory modelVersion, string memory modelExtendInfo) = aiModels.decodeModelInfo(modelInfo);
+        
+        uint256 modelId = aiModels.recordModelUpload(modelName, modelVersion, modelExtendInfo, msg.sender);
+
         address assetToken = router.assetToken();
         require(
             IERC20(assetToken).balanceOf(msg.sender) >= purchaseAmount,
@@ -225,7 +236,8 @@ contract IMOEntry is
             data: _data,
             description: desc,
             trading: true, // Can only be traded once creator made initial purchase
-            tradingOnUniswap: false
+            tradingOnUniswap: false,
+            modelId: modelId
         });
         tokenInfo[address(token)] = tmpToken;
         tokenInfos.push(address(token));
@@ -246,7 +258,7 @@ contract IMOEntry is
             }
         }
 
-        emit Launched(address(token), _pair, tokenInfos.length);
+        emit Launched(address(token), _pair, tokenInfos.length, modelId);
 
         // Make initial purchase
         IERC20(assetToken).approve(address(router), initialPurchase);

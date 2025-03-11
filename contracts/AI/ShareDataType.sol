@@ -47,14 +47,3 @@ struct NodeInfo{
     string[]  gpuTypes;
     uint256[] gpuNums;
 }
-
-struct RewardView{
-    address identifier;
-    uint256 rewardTokens;
-    uint256 peneltyTokens;
-}
-
-struct Page{
-    uint256 startIndex;
-    uint256 count;
-}

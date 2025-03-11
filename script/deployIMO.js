@@ -96,7 +96,7 @@ async function main() {
     await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
     await modelFactory.setTokenAdmin(tokenAdmin)
     await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
-    await modelFactory.setTokenTaxParams(0, 0, 0, ethers.constants.AddressZero) // set extra external swap tax
+    await modelFactory.setTokenTaxParams(0, 0, 0) // set extra external swap tax
     await modelFactory.setMaturityDuration(MATURITY_DURATION) //set 10 years of initial asset lock time
 
     // configure IMOEntry

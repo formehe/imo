@@ -72,7 +72,8 @@ describe("AIWorkload", function () {
     const modelVersion = "v1.0";
     const modelInfo = "Test model description";
 
-    await aiModelUpload.recordModelUpload(modelName, modelVersion, modelInfo);
+    await aiModelUpload.grantRole(await aiModelUpload.UPLOADER_ROLE(), owner.address) 
+    await aiModelUpload.recordModelUpload(modelName, modelVersion, modelInfo, owner.address);
 
     AIWorkload = await ethers.getContractFactory("AIWorkload");
     aiWorkload = await AIWorkload.deploy(nodesRegistry.address, aiModelUpload.address, assetManagement.address);

@@ -2,8 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "./NodesRegistry.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract AIModels {
+contract AIModels is AccessControl{
     struct ModelEvaluation {
         uint256 parameter;
     }
@@ -17,6 +18,8 @@ contract AIModels {
 
     IStake  public stakeToken;
 
+    bytes32 public constant UPLOADER_ROLE = keccak256("UPLOADER_ROLE"); // Able to withdraw and execute applications
+
     mapping(uint256 => address[]) public modelDistribution;
     mapping(address => uint256[]) public nodeDeployment;
 
@@ -29,13 +32,15 @@ contract AIModels {
         require(_stakeToken != address(0), "Invalid stake token");
         registry = NodesRegistry(_registry);
         stakeToken = IStake(_stakeToken);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     function recordModelUpload(
         string calldata modelName,
         string calldata modelVersion,
-        string calldata modelInfo
-    ) external returns(uint256 modelId) {
+        string calldata modelExtendInfo,
+        address owner
+    ) external onlyRole(UPLOADER_ROLE) returns(uint256 modelId) {
         string memory model = _modelId(modelName, modelVersion);
         require(modelIds[model] == 0, "Model exist");
 
@@ -43,14 +48,14 @@ contract AIModels {
             modelId: nextModelId,
             modelName: modelName,
             modelVersion: modelVersion,
-            uploader: msg.sender,
-            extendInfo: modelInfo,
+            uploader: owner,
+            extendInfo: modelExtendInfo,
             timestamp : block.timestamp
         });
 
         modelIds[model] = nextModelId;
 
-        emit UploadModeled(nextModelId, msg.sender, modelName, modelVersion, modelInfo);
+        emit UploadModeled(nextModelId, owner, modelName, modelVersion, modelExtendInfo);
         modelId = nextModelId;
         nextModelId++;
     }
@@ -150,5 +155,22 @@ contract AIModels {
         string memory modelVersion
     ) internal pure returns(string memory) {
         return string(abi.encodePacked(modelName, "/", modelVersion));
+    }
+
+    function encodeModelInfo(
+        string calldata modelName,
+        string calldata modelVersion,
+        string calldata modelExtendInfo
+    ) public pure returns(bytes memory) {
+        return abi.encode(modelName, modelVersion, modelExtendInfo);
+    }
+
+    function decodeModelInfo(bytes memory modelInfo) public pure returns(string memory modelName,
+        string memory modelVersion, string memory modelExtendInfo) {
+            (modelName, modelVersion, modelExtendInfo) = abi.decode(modelInfo, (string, string, string));
+    }
+
+    function renounceRole(bytes32 /*role*/, address /*account*/) public pure override {
+        require(false, "not support");
     }
 }

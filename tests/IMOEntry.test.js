@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 const { deployAndCloneContract } = require("./utils")
 
 describe("IMOEntry Contract", function () {
-  let imoEntry, internalFactory, internalRouter;
+  let imoEntry, internalFactory, internalRouter, aiModels;
   let owner, addr1, admin, feeTo;
   let assetToken;
   const UNISWAP_ROUTER = "0xD516492bb58F07bc91c972DCCB2DF654653d4D33";
@@ -15,6 +15,10 @@ describe("IMOEntry Contract", function () {
     const ERC20Sample = await ethers.getContractFactory("ERC20Sample");
     assetToken = await ERC20Sample.deploy("Asset Token", "ASSET");
     await assetToken.deployed();
+
+    const AIModels = await ethers.getContractFactory("AIModels");
+    aiModels = await AIModels.deploy(addr1.address, admin.address)
+    await aiModels.deployed();
 
     // internal swap
     // internal factory
@@ -75,6 +79,9 @@ describe("IMOEntry Contract", function () {
     await modelFactory.setTokenAdmin(admin.address)
     await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
     await modelFactory.setTokenTaxParams(0, 0, 0, ethers.constants.AddressZero)
+
+    // grant aimodels
+    await aiModels.grantRole(await aiModels.UPLOADER_ROLE(), imoEntry.address)
   
     // configure IMOEntry
     await imoEntry.initialize(
@@ -87,7 +94,8 @@ describe("IMOEntry Contract", function () {
       99 /*%,uint256 maxTx_*/, 
       modelFactory.address, 
       ethers.utils.parseEther("1000000"), // gradThreshold ~~10^6
-      UNISWAP_ROUTER
+      UNISWAP_ROUTER,
+      aiModels.address,
     )
   });
 
@@ -130,7 +138,9 @@ describe("IMOEntry Contract", function () {
     await assetToken.transfer(addr1.address, ethers.utils.parseEther("1000"));
     await assetToken.connect(addr1).approve(imoEntry.address, ethers.utils.parseEther("1000"));
 
-    const tx = await imoEntry.connect(addr1).launch("Test Token", "TT", "Test Description", ethers.utils.parseEther("2"));
+    modelInfo = await aiModels.encodeModelInfo("model1", "model1", "model1")
+
+    const tx = await imoEntry.connect(addr1).launch("Test Token", "TT", "Test Description", ethers.utils.parseEther("2"), modelInfo);
     await tx.wait();
 
     const profile = await imoEntry.profile(addr1.address);
@@ -141,7 +151,8 @@ describe("IMOEntry Contract", function () {
     await assetToken.transfer(addr1.address, ethers.utils.parseEther("1000"));
     await assetToken.connect(addr1).approve(imoEntry.address, ethers.utils.parseEther("1000"));
 
-    const tx = await imoEntry.connect(addr1).launch("Test Token", "TT", "Test Description", ethers.utils.parseEther("500"));
+    modelInfo = await aiModels.encodeModelInfo("model1", "model1", "model1")
+    const tx = await imoEntry.connect(addr1).launch("Test Token", "TT", "Test Description", ethers.utils.parseEther("500"), modelInfo);
     await tx.wait();
 
     const tokenAddress = (await imoEntry.tokenInfos(0)).toString();
@@ -159,7 +170,8 @@ describe("IMOEntry Contract", function () {
     await assetToken.transfer(admin.address, ethers.utils.parseEther("2000000"));
     await assetToken.connect(addr1).approve(imoEntry.address, ethers.utils.parseEther("2000000"));
 
-    const tx = await imoEntry.connect(addr1).launch("Test Token", "TT", "Test Description", ethers.utils.parseEther("500"));
+    modelInfo = await aiModels.encodeModelInfo("model1", "model1", "model1")
+    const tx = await imoEntry.connect(addr1).launch("Test Token", "TT", "Test Description", ethers.utils.parseEther("500"), modelInfo);
     await tx.wait();
 
     const tokenAddress = (await imoEntry.tokenInfos(0)).toString();

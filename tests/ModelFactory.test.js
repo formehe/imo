@@ -54,7 +54,7 @@ describe("ModelFactory Contract", function () {
     await modelFactory.setUniswapRouter("0xD516492bb58F07bc91c972DCCB2DF654653d4D33")
     await modelFactory.setTokenTaxParams(1/*万分之,uint256 projectBuyTaxBasisPoints*/, 
       1/*万分之,uint256 projectSellTaxBasisPoints*/, 
-      1/*万分之uint256 taxSwapThresholdBasisPoints*/, addr1.address/*address projectTaxRecipient*/)
+      1/*万分之uint256 taxSwapThresholdBasisPoints*/)
   });
 
   it("should initialize contract correctly", async function () {

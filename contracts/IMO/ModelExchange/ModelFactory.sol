@@ -78,8 +78,9 @@ contract ModelFactory is
     address private _tokenAdmin;
 
     // Default agent token params
-    bytes private _tokenTaxParams;
-    uint16 private _tokenMultiplier; // Unused
+    uint256 private _projectBuyTaxBasisPoints;
+    uint256 private _projectSellTaxBasisPoints;
+    uint256 private _taxSwapThresholdBasisPoints;
 
     bytes32 public constant BONDING_ROLE = keccak256("BONDING_ROLE");
 
@@ -160,10 +161,18 @@ contract ModelFactory is
         application.status = ApplicationStatus.Executed;
 
         // step1
+        bytes memory tokenTaxParams = abi.encode(
+            _projectBuyTaxBasisPoints,
+            _projectSellTaxBasisPoints,
+            _taxSwapThresholdBasisPoints,
+            application.proposer
+        );
+
         address token = _createNewModelToken(
             application.name,
             application.symbol,
-            tokenSupplyParams_
+            tokenSupplyParams_,
+            tokenTaxParams
         );
 
         // step2
@@ -198,14 +207,15 @@ contract ModelFactory is
     function _createNewModelToken(
         string memory name,
         string memory symbol,
-        bytes memory tokenSupplyParams_
+        bytes memory tokenSupplyParams_,
+        bytes memory tokenTaxParams_
     ) internal returns (address instance) {
         instance = Clones.clone(tokenImplementation);
         IModelToken(instance).initialize(
             [_tokenAdmin, _uniswapRouter, assetToken],
             abi.encode(name, symbol),
             tokenSupplyParams_,
-            _tokenTaxParams
+            tokenTaxParams_
         );
 
         allTradingTokens.push(instance);
@@ -260,15 +270,11 @@ contract ModelFactory is
     function setTokenTaxParams(
         uint256 projectBuyTaxBasisPoints,
         uint256 projectSellTaxBasisPoints,
-        uint256 taxSwapThresholdBasisPoints,
-        address projectTaxRecipient
+        uint256 taxSwapThresholdBasisPoints
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        _tokenTaxParams = abi.encode(
-            projectBuyTaxBasisPoints,
-            projectSellTaxBasisPoints,
-            taxSwapThresholdBasisPoints,
-            projectTaxRecipient
-        );
+        _projectBuyTaxBasisPoints = projectBuyTaxBasisPoints;
+        _projectSellTaxBasisPoints = projectSellTaxBasisPoints;
+        _taxSwapThresholdBasisPoints = taxSwapThresholdBasisPoints;
     }
 
     function setAssetToken(

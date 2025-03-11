@@ -78,7 +78,7 @@ describe("IMOEntry Contract", function () {
     await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
     await modelFactory.setTokenAdmin(admin.address)
     await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
-    await modelFactory.setTokenTaxParams(0, 0, 0, ethers.constants.AddressZero)
+    await modelFactory.setTokenTaxParams(0, 0, 0)
 
     // grant aimodels
     await aiModels.grantRole(await aiModels.UPLOADER_ROLE(), imoEntry.address)

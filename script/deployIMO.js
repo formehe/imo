@@ -4,6 +4,7 @@ async function main() {
     [owner] = await ethers.getSigners();
     console.log(owner.address)
     const UNISWAP_ROUTER = "0x626459cF9438259ed0812D71650568306486CB00";
+    const AI_MODELS = "0x15A9238912cea445B3827D86B2f8f2b2Ab13370e";
     const BUY_TAX = 1; //%, internal swap tax
     const SELL_TAX = 1; //%, internal swap tax
     const MATURITY_DURATION = 315360000;// 10 years
@@ -110,8 +111,14 @@ async function main() {
       50 /* %,uint256 maxTx_ */, 
       modelFactory.address, 
       ethers.utils.parseEther("1000000"),// gradThreshold
-      UNISWAP_ROUTER
+      UNISWAP_ROUTER,
+      AI_MODELS
     )
+
+    console.log("finish imo entry")
+    aiModels = await ethers.getContractAt("AIModels", AI_MODELS);
+    await aiModels.grantRole(await aiModels.UPLOADER_ROLE(), imoEntry.address)
+    console.log("finish grant role of ai models")
 }
 
 main().catch((error) => {

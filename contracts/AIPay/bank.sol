@@ -7,12 +7,12 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 contract Bank is AccessControl {
     // Exchange rate between USDT and TOP
     uint256 public usdtToTopRate;
-    
+
     // Role identifier for IMO group
     bytes32 public constant IMO_ROLE = keccak256("IMO_ROLE");
 
     event RateUpdated(uint256 oldRate, uint256 newRate);
-    
+
     // USDT and TOP token contract addresses
     IERC20 public usdtToken;
     IERC20 public topToken;
@@ -33,13 +33,19 @@ contract Bank is AccessControl {
     function withdrawUSDT(uint256 _amount) external onlyRole(IMO_ROLE) {
         require(usdtToken.balanceOf(address(this)) >= _amount, "Insufficient USDT balance");
         usdtToken.transfer(msg.sender, _amount);
+        emit USDTWithdrawn(msg.sender, _amount);
     }
+
+    event USDTWithdrawn(address indexed to, uint256 amount);
 
     // Withdraw TOP - IMO role only
     function withdrawTOP(uint256 _amount) external onlyRole(IMO_ROLE) {
         require(topToken.balanceOf(address(this)) >= _amount, "Insufficient TOP balance");
         topToken.transfer(msg.sender, _amount);
+        emit TOPWithdrawn(msg.sender, _amount);
     }
+
+    event TOPWithdrawn(address indexed to, uint256 amount);
 
         // Update USDT to TOP conversion rate
     function updateRate(uint256 _newRate) external onlyRole(IMO_ROLE) {

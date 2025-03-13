@@ -7,7 +7,7 @@ import "./bank.sol";
 
 contract Deposit is AccessControl {
     bytes32 public constant IMO_ROLE = keccak256("IMO_ROLE");
-    
+
     IERC20 public usdt;
     address public bankAddress;
     // uint256 public usdtToTopRate; // How many TOP tokens per 1 USDT
@@ -29,12 +29,14 @@ contract Deposit is AccessControl {
     function deposit(uint256 _amount) external {
         require(_amount > 0, "Amount must be greater than 0");
         require(bankAddress != address(0), "Bank address not set");
-        
+
         // Transfer USDT from user to bank
         bool success = usdt.transferFrom(msg.sender, bankAddress, _amount);
         require(success, "USDT transfer failed");
 
 
+        // Update the user's balance after deposit
+        _updateUserBalanceOnDeposit(msg.sender, _amount);
         // Get usdtToTopRate from bank contract
         Bank bank = Bank(bankAddress);
         uint256 bankRate = bank.usdtToTopRate();
@@ -61,7 +63,7 @@ contract Deposit is AccessControl {
         uint256 totalDeposited; // Total USDT amount ever deposited
         uint256 currentBalance; // Current remaining USDT balance
     }
-    
+
     // Mapping to track user balances
     mapping(address => UserBalance) public userBalances;
 

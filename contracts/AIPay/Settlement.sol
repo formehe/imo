@@ -12,6 +12,13 @@ contract Settlement is AccessControl {
     // Mapping to store user balances
     mapping(address => uint256) public userBalances;
 
+
+    //========================= tmp setting =========================
+    // xx u/token
+    uint256 public UperTokens = 1e9;
+
+    //========================= tmp setting =========================
+
     // Events
     event BalanceUpdated(address indexed user, uint256 previousBalance, uint256 newBalance);
     event DepositContractUpdated(address oldContract, address newContract);
@@ -21,7 +28,6 @@ contract Settlement is AccessControl {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(OPERATOR_ROLE, msg.sender);
     }
-
 
 
     /**
@@ -55,4 +61,47 @@ contract Settlement is AccessControl {
         depositContract.updateUserBalance(user,newBalance);
         emit BalanceUpdated(user, previousBalance, newBalance);
     }
+
+    //todo user + miner 地址
+    //
+    /**
+    * @dev Deducts workload from user's balance and emits an event
+    * @param workload The amount of workload to deduct
+    * @param user The address of the user performing inference
+    * @param worker The array of worker node addresses for parameter inference
+    * @param modelId The ID of the model being used
+    * @param sessionId Part of the unique session identifier
+    * @param epochId Another part of the unique session identifier
+    */
+    function deductWorkload(
+        uint256 workload,
+        address user,
+        address[] memory worker,
+        uint256 modelId,
+        uint256 sessionId,
+        uint256 epochId
+    ) external onlyRole(OPERATOR_ROLE) {
+
+        //换算关系
+
+        uint256 needReserveU = UperTokens * workload ;
+        // current user balance
+        (, uint256 previousBalance) = depositContract.getUserBalance(user);
+
+        require(previousBalance >= needReserveU, "not enought for paying");
+
+        depositContract.updateUserBalance(user,previousBalance - needReserveU);
+
+        emit BalanceUpdated(user, previousBalance, userBalances[user]);
+        emit WorkloadDeducted(workload, user, worker, modelId, sessionId, epochId);
+    }
+
+    event WorkloadDeducted(
+        uint256 workload,
+        address indexed user,
+        address[] worker,
+        uint256 modelId,
+        uint256 sessionId,
+        uint256 epochId
+    );
 }

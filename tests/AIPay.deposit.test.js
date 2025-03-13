@@ -106,7 +106,9 @@ describe("Deposit Contract", function () {
 
     //check if user balance has been refresh
 
-    (, userBalance) = await DepositCon.getUserBalance(owner.address);
+    const { current: userBalance } = await DepositCon.getUserBalance(
+      owner.address
+    );
 
     // Log updated user balance
     console.log(

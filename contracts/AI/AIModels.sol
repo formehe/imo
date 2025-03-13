@@ -64,7 +64,7 @@ contract AIModels is AccessControl{
         require(registry.check(msg.sender), "Node is not active");
         UploadModel storage record = uploadModels[modelId];
         require(record.modelId != 0, "Model is not exist");
-        
+
         _addFromModelDistribution(modelId, msg.sender);
         _addFromNodeDeployment(modelId, msg.sender);
 
@@ -93,7 +93,7 @@ contract AIModels is AccessControl{
     }
 
     function _addFromModelDistribution(
-        uint256 modelId, 
+        uint256 modelId,
         address node
     ) internal {
         address[] storage nodes = modelDistribution[modelId];
@@ -149,7 +149,7 @@ contract AIModels is AccessControl{
     }
 
     function _modelId(
-        string memory modelName, 
+        string memory modelName,
         string memory modelVersion
     ) internal pure returns(string memory) {
         return string(abi.encodePacked(modelName, "/", modelVersion));

@@ -18,6 +18,7 @@ contract AIWorkload {
         uint256 modelId;
         address reporter;
         address worker;
+        address user;
     }
 
     struct Session {
@@ -107,6 +108,7 @@ contract AIWorkload {
 
     function reportWorkload(
         address worker,
+        address user,
         uint256 workload,
         uint256 modelId,
         uint256 sessionId,
@@ -116,11 +118,12 @@ contract AIWorkload {
         require(worker != address(0), "Invalid owner address");
         require(workload > 0, "Workload must be greater than zero");
         require(signatures.length >= 3, "Length of signatures must more than 3");
+        require(user != address(0), "Invalid user");
 
-        (uint256 tmpModelId, , , , ,) = modelRegistry.uploadModels(modelId);
+        (uint256 tmpModelId, , , , , ,) = modelRegistry.uploadModels(modelId);
         require(tmpModelId == modelId, "Model not exist");
 
-        require(_isValidSignature(worker, msg.sender, abi.encode(worker, workload, modelId, sessionId, epochId), signatures), "Invalid signature");
+        require(_isValidSignature(worker, msg.sender, abi.encode(worker, user, workload, modelId, sessionId, epochId), signatures), "Invalid signature");
 
         Session storage session = sessions[sessionId];
 
@@ -131,7 +134,8 @@ contract AIWorkload {
             timestamp: block.timestamp,
             modelId: modelId,
             reporter: msg.sender,
-            worker: worker
+            worker: worker,
+            user: user
         });
 
         WorkLoad storage workerWorkLoad = totalWorkerWorkload[worker];

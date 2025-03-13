@@ -5,25 +5,18 @@ import "./NodesRegistry.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract AIModels is AccessControl{
-    struct ModelEvaluation {
-        uint256 parameter;
-    }
-
     NodesRegistry public registry;
     mapping(string => uint256) public modelIds;
     mapping(uint256 => UploadModel) public uploadModels;
+    mapping(string => address) public modelOwns;
 
-    mapping(uint256 => ModelEvaluation) public modelEvaluations;
     uint256 public nextModelId = 1;
-
     IStake  public stakeToken;
-
-    bytes32 public constant UPLOADER_ROLE = keccak256("UPLOADER_ROLE"); // Able to withdraw and execute applications
 
     mapping(uint256 => address[]) public modelDistribution;
     mapping(address => uint256[]) public nodeDeployment;
 
-    event UploadModeled(uint256 indexed modelId, address indexed uploader, string modelName, string modelVersion, string modelInfo);
+    event UploadModeled(uint256 indexed modelId, address indexed uploader, string modelName, string modelVersion, string modelInfo, uint256 price);
     event ModelDeployed(address indexed node, uint256 indexed modelId);
     event ModelRemoved(address indexed node, uint256 indexed modelId);
 
@@ -39,8 +32,8 @@ contract AIModels is AccessControl{
         string calldata modelName,
         string calldata modelVersion,
         string calldata modelExtendInfo,
-        address owner
-    ) external onlyRole(UPLOADER_ROLE) returns(uint256 modelId) {
+        uint256         price
+    ) external returns(uint256 modelId) {
         string memory model = _modelId(modelName, modelVersion);
         require(modelIds[model] == 0, "Model exist");
 
@@ -48,14 +41,19 @@ contract AIModels is AccessControl{
             modelId: nextModelId,
             modelName: modelName,
             modelVersion: modelVersion,
-            uploader: owner,
+            uploader: msg.sender,
             extendInfo: modelExtendInfo,
-            timestamp : block.timestamp
+            timestamp : block.timestamp,
+            price : price
         });
 
         modelIds[model] = nextModelId;
 
-        emit UploadModeled(nextModelId, owner, modelName, modelVersion, modelExtendInfo);
+        if (modelOwns[modelName] == address(0)) {
+            modelOwns[modelName] = msg.sender;
+        }
+
+        emit UploadModeled(nextModelId, msg.sender, modelName, modelVersion, modelExtendInfo, price);
         modelId = nextModelId;
         nextModelId++;
     }
@@ -160,14 +158,15 @@ contract AIModels is AccessControl{
     function encodeModelInfo(
         string calldata modelName,
         string calldata modelVersion,
-        string calldata modelExtendInfo
+        string calldata modelExtendInfo,
+        uint256 price
     ) public pure returns(bytes memory) {
-        return abi.encode(modelName, modelVersion, modelExtendInfo);
+        return abi.encode(modelName, modelVersion, modelExtendInfo, price);
     }
 
     function decodeModelInfo(bytes memory modelInfo) public pure returns(string memory modelName,
-        string memory modelVersion, string memory modelExtendInfo) {
-            (modelName, modelVersion, modelExtendInfo) = abi.decode(modelInfo, (string, string, string));
+        string memory modelVersion, string memory modelExtendInfo, uint256 price) {
+            (modelName, modelVersion, modelExtendInfo, price) = abi.decode(modelInfo, (string, string, string, uint256));
     }
 
     function renounceRole(bytes32 /*role*/, address /*account*/) public pure override {

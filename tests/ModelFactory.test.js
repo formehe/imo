@@ -51,7 +51,7 @@ describe("ModelFactory Contract", function () {
     );
 
     await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), addr1.address)
-    await modelFactory.setUniswapRouter("0xD516492bb58F07bc91c972DCCB2DF654653d4D33")
+    await modelFactory.setUniswapRouter("0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9")
     await modelFactory.setTokenTaxParams(1/*万分之,uint256 projectBuyTaxBasisPoints*/, 
       1/*万分之,uint256 projectSellTaxBasisPoints*/, 
       1/*万分之uint256 taxSwapThresholdBasisPoints*/)

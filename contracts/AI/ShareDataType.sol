@@ -28,6 +28,7 @@ struct UploadModel {
     address uploader;
     string  extendInfo;
     uint256 timestamp;
+    uint256 price;
 }
 
 struct ModelSettleWorkload{

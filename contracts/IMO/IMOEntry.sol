@@ -47,13 +47,13 @@ contract IMOEntry is
         string description;
         bool trading;
         bool tradingOnUniswap;
-        uint256 modelId;
+        uint256 applicationId;
     }
 
     struct Data {
         address token;
         string name;
-        string _name;
+        string _modelName;
         string ticker;
         uint256 supply;
         uint256 price;
@@ -71,7 +71,9 @@ contract IMOEntry is
     mapping(address => Token) public tokenInfo;
     address[] public tokenInfos;
 
-    event Launched(address indexed token, address indexed pair, uint tokenLenth, uint256 modelId);
+    mapping(string => address) public modelLaunched;
+
+    event Launched(address indexed token, address indexed pair, uint tokenLenth);
     event Deployed(address indexed token, uint256 amount0, uint256 amount1);
     event Graduated(address indexed token, address modelToken);
 
@@ -172,21 +174,19 @@ contract IMOEntry is
     }
 
     function launch(
-        string calldata _name,
+        string calldata _modelName,
         string calldata _ticker,
         string calldata desc,
-        uint256 purchaseAmount,
-        bytes calldata modelInfo //abi.encode(string calldata modelName, string calldata modelVersion, string calldata modelInfo)
+        uint256 purchaseAmount
     ) public nonReentrant returns (address, address, uint) {
         require(
             purchaseAmount > fee,
             "Purchase amount must be greater than fee"
         );
 
-        (string memory modelName, string memory modelVersion, string memory modelExtendInfo) = aiModels.decodeModelInfo(modelInfo);
+        require(aiModels.modelOwns(_modelName) == msg.sender, "Model is not exist or model not your's");
+        require(modelLaunched[_modelName] == address(0), "Model has been launched");
         
-        uint256 modelId = aiModels.recordModelUpload(modelName, modelVersion, modelExtendInfo, msg.sender);
-
         address assetToken = router.assetToken();
         require(
             IERC20(assetToken).balanceOf(msg.sender) >= purchaseAmount,
@@ -200,7 +200,7 @@ contract IMOEntry is
             initialPurchase
         );
 
-        string memory tokenName = string(abi.encodePacked("internal ",  _name));
+        string memory tokenName = string(abi.encodePacked("internal_",  _modelName));
         InternalToken token = new InternalToken(tokenName, _ticker, initialSupply, maxTx, uniswapRouter);
         uint256 supply = token.totalSupply();
 
@@ -217,7 +217,7 @@ contract IMOEntry is
         Data memory _data = Data({
             token: address(token),
             name: tokenName,
-            _name: _name,
+            _modelName: _modelName,
             ticker: _ticker,
             supply: supply,
             price: supply / liquidity,
@@ -237,7 +237,7 @@ contract IMOEntry is
             description: desc,
             trading: true, // Can only be traded once creator made initial purchase
             tradingOnUniswap: false,
-            modelId: modelId
+            applicationId: 0
         });
         tokenInfo[address(token)] = tmpToken;
         tokenInfos.push(address(token));
@@ -258,7 +258,8 @@ contract IMOEntry is
             }
         }
 
-        emit Launched(address(token), _pair, tokenInfos.length, modelId);
+        emit Launched(address(token), _pair, tokenInfos.length);
+        modelLaunched[_modelName] = address(token);
 
         // Make initial purchase
         IERC20(assetToken).approve(address(router), initialPurchase);
@@ -408,11 +409,13 @@ contract IMOEntry is
 
         IERC20(router.assetToken()).approve(modelFactory, assetBalance);
         uint256 id = IModelFactory(modelFactory).initFromBondingCurve(
-            string(abi.encodePacked("models ", _token.data._name)),
+            string(abi.encodePacked("models_", _token.data._modelName)),
             _token.data.ticker,
             assetBalance,
             _token.creator
         );
+
+        _token.applicationId = id;
 
         address modelToken = IModelFactory(modelFactory)
             .executeBondingCurveApplication(

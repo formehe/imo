@@ -9,7 +9,7 @@ describe("InternalFactory Contract", function () {
     const buyTax = 1;  // 1% 购买税
     const sellTax = 2; // 2% 卖出税
     const totalSupply = 10000000000;
-    const UNISWAP_ROUTER = "0xD516492bb58F07bc91c972DCCB2DF654653d4D33";
+    const UNISWAP_ROUTER = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
 
     beforeEach(async function () {
         [owner, creator, user1, user2, taxVault, router, admin] = await ethers.getSigners();

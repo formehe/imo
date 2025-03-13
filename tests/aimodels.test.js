@@ -70,7 +70,6 @@ describe("AIModels Contract", function () {
         const AIModelUploadFactory = await ethers.getContractFactory("AIModels");
         aiModelUpload = await AIModelUploadFactory.deploy(nodesGovernance.address, assetManagement.address);
         await aiModelUpload.deployed();
-        await aiModelUpload.grantRole(await aiModelUpload.UPLOADER_ROLE(), user1.address) 
 
         await nodesGovernance.nodesGovernance_initialize(nodeInfos, aiModelUpload.address, ROUND_DURATION_TIME, assetManagement.address)
     });
@@ -87,9 +86,9 @@ describe("AIModels Contract", function () {
 
         let nextModelId = await aiModelUpload.nextModelId();
 
-        await expect(aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, user1.address))
+        await expect(aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, 1))
             .to.emit(aiModelUpload, "UploadModeled")
-            .withArgs(nextModelId, user1.address, modelName, modelVersion, modelInfo);
+            .withArgs(nextModelId, user1.address, modelName, modelVersion, modelInfo, 1);
 
         const modelId = await aiModelUpload.modelIds(`${modelName}/${modelVersion}`);
         const uploadModel = await aiModelUpload.uploadModels(modelId);
@@ -106,10 +105,10 @@ describe("AIModels Contract", function () {
         const modelVersion = "v1.0";
         const modelInfo = "Test model description";
 
-        await aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, user1.address);
+        await aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, 1);
 
         await expect(
-            aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, user1.address)
+            aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, 1)
         ).to.be.revertedWith("Model exist");
     });
 
@@ -119,7 +118,7 @@ describe("AIModels Contract", function () {
         const modelInfo = "Version 1.0";
         
         const modelId = await aiModelUpload.nextModelId();
-        await aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, user1.address);
+        await aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, 1);
     
         await aiModelUpload.connect(addr1).reportDeployment(modelId);
     
@@ -136,7 +135,7 @@ describe("AIModels Contract", function () {
         const modelInfo = "Version 1.0";
 
         const modelId = await aiModelUpload.nextModelId();
-        await aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, user1.address);
+        await aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, 1);
 
         await aiModelUpload.connect(addr1).reportDeployment(modelId);
 
@@ -155,7 +154,7 @@ describe("AIModels Contract", function () {
         const modelInfo = "Version 1.0";
 
         const modelId = await aiModelUpload.nextModelId();
-        await aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, user1.address);
+        await aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, 1);
 
         await nodesGovernance.connect(addr7).registerNode(addr7.address, "71111111111111111", ["A100", "V100"], [3, 2]);
         await expect(aiModelUpload.connect(addr7).reportDeployment(modelId)).to.be.revertedWith(
@@ -187,7 +186,7 @@ describe("AIModels Contract", function () {
         const modelInfo = "Version 1.0";
 
         const modelId = await aiModelUpload.nextModelId();
-        await aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, user1.address);
+        await aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, 1);
 
         await aiModelUpload.connect(addr1).reportDeployment(modelId);
 

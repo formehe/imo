@@ -207,7 +207,7 @@ contract ModelToken is
                 IERC20(pairToken).balanceOf(address(this)),
                 0,
                 0,
-                address(this),
+                lpOwner,
                 block.timestamp
             );
 
@@ -215,8 +215,6 @@ contract ModelToken is
 
         // We now set this to false so that future transactions can be eligibile for autoswaps
         _autoSwapInProgress = false;
-
-        IERC20(uniswapV2Pair).transfer(lpOwner, lpTokens);
     }
 
     function isLiquidityPool(address queryAddress_) public view override returns (bool) {

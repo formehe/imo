@@ -72,8 +72,7 @@ describe("AIWorkload", function () {
     const modelVersion = "v1.0";
     const modelInfo = "Test model description";
 
-    await aiModelUpload.grantRole(await aiModelUpload.UPLOADER_ROLE(), owner.address) 
-    await aiModelUpload.recordModelUpload(modelName, modelVersion, modelInfo, owner.address);
+    await aiModelUpload.recordModelUpload(modelName, modelVersion, modelInfo, 1);
 
     AIWorkload = await ethers.getContractFactory("AIWorkload");
     aiWorkload = await AIWorkload.deploy(nodesRegistry.address, aiModelUpload.address, assetManagement.address);
@@ -96,26 +95,26 @@ describe("AIWorkload", function () {
   describe("reportWorkload", function () {
     it("Should revert if worker address is invalid", async function () {
       await expect(
-        aiWorkload.connect(reporter1).reportWorkload(ethers.constants.AddressZero, 100, 1, 1, 1, [])
+        aiWorkload.connect(reporter1).reportWorkload(ethers.constants.AddressZero, addr3.address, 100, 1, 1, 1, [])
       ).to.be.revertedWith("Invalid owner address");
     });
 
     it("Should revert if workload is zero", async function () {
       await expect(
-        aiWorkload.connect(reporter1).reportWorkload(owner.address, 0, 1, 1, 1, [])
+        aiWorkload.connect(reporter1).reportWorkload(owner.address, addr3.address, 0, 1, 1, 1, [])
       ).to.be.revertedWith("Workload must be greater than zero");
     });
 
     it("Should Length of signatures must more than 3", async function () {
       const signatures = [];
       await expect(
-        aiWorkload.connect(reporter1).reportWorkload(owner.address, 100, 1, 1, 1, signatures)
+        aiWorkload.connect(reporter1).reportWorkload(owner.address, addr3.address, 100, 1, 1, 1, signatures)
       ).to.be.revertedWith("Length of signatures must more than 3");
     });
 
     it("Should record workload and emit WorkloadReported event", async function () {
       const workload = 200;
-      const content = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, workload, 1, 1, 1])
+      const content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, addr3.address, workload, 1, 1, 1])
 
       const signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
       const signature2 = await addr2.signMessage(ethers.utils.arrayify(content));
@@ -127,7 +126,7 @@ describe("AIWorkload", function () {
         { r: signature3.slice(0, 66), s: "0x" + signature3.slice(66, 130), v: parseInt(signature3.slice(130, 132), 16)},
       ];
 
-      const tx = await aiWorkload.connect(addr1).reportWorkload(addr3.address, workload, 1, 1, 1, signatures);
+      const tx = await aiWorkload.connect(addr1).reportWorkload(addr3.address, addr3.address, workload, 1, 1, 1, signatures);
 
       const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
       await expect(tx)
@@ -141,7 +140,7 @@ describe("AIWorkload", function () {
     it("should fail if epochId is out of order", async function () {
       let workload = 200;
       let epochId = 3
-      let content = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, workload, 1, 1, epochId])
+      let content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, addr3.address, workload, 1, 1, epochId])
       let signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
       let signature2 = await addr2.signMessage(ethers.utils.arrayify(content));
       let signature3 = await addr3.signMessage(ethers.utils.arrayify(content));
@@ -151,11 +150,11 @@ describe("AIWorkload", function () {
         { r: signature2.slice(0, 66), s: "0x" + signature2.slice(66, 130), v: parseInt(signature2.slice(130, 132), 16) },
         { r: signature3.slice(0, 66), s: "0x" + signature3.slice(66, 130), v: parseInt(signature3.slice(130, 132), 16) },
       ];
-      await aiWorkload.connect(addr1).reportWorkload(addr3.address, workload, 1, 1, epochId, signatures);
+      await aiWorkload.connect(addr1).reportWorkload(addr3.address, addr3.address, workload, 1, 1, epochId, signatures);
 
       workload = 200;
       epochId = 2
-      content = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, workload, 1, 1, epochId])
+      content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, addr3.address, workload, 1, 1, epochId])
       signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
       signature2 = await addr2.signMessage(ethers.utils.arrayify(content));
       signature3 = await addr3.signMessage(ethers.utils.arrayify(content));
@@ -167,13 +166,13 @@ describe("AIWorkload", function () {
       ];
   
       await expect(
-        aiWorkload.connect(addr1).reportWorkload(addr3.address, workload, 1, 1, epochId, signatures)
+        aiWorkload.connect(addr1).reportWorkload(addr3.address, addr3.address, workload, 1, 1, epochId, signatures)
       ).to.be.revertedWith("Epoch out of order");
     });
 
     it("Should revert if agreement count does not exceed half", async function () {
       const workload = 200;
-      const content = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"], [owner.address, workload, 1, 1, 1])
+      const content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [owner.address, addr3.address, workload, 1, 1, 1])
 
       const signature1 = await reporter1.signMessage(ethers.utils.arrayify(content));
       const signature2 = await reporter2.signMessage(ethers.utils.arrayify(content));
@@ -186,13 +185,13 @@ describe("AIWorkload", function () {
       ];
 
       await expect(
-        aiWorkload.connect(reporter1).reportWorkload(owner.address, workload, 1, 1, 1, signatures)
+        aiWorkload.connect(reporter1).reportWorkload(owner.address, addr3.address, workload, 1, 1, 1, signatures)
       ).to.be.revertedWith("Invalid signature");
     });
 
     it("Should revert duplicate signer", async function () {
       const workload = 200;
-      let content = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, workload, 1, 1, 1])
+      let content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, addr3.address, workload, 1, 1, 1])
 
       let signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
       let signature2 = await addr2.signMessage(ethers.utils.arrayify(content));
@@ -203,10 +202,10 @@ describe("AIWorkload", function () {
         { r: signature1.slice(0, 66), s: "0x" + signature1.slice(66, 130), v: parseInt(signature1.slice(130, 132), 16)},
       ];
 
-      await expect(aiWorkload.connect(addr1).reportWorkload(addr3.address, workload, 1, 1, 1, signatures))
+      await expect(aiWorkload.connect(addr1).reportWorkload(addr3.address, addr3.address, workload, 1, 1, 1, signatures))
         .to.be.revertedWith("Invalid signature")
 
-      content = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"], [addr1.address, workload, 1, 1, 1])
+      content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [addr1.address, addr3.address, workload, 1, 1, 1])
 
       signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
       signature2 = await addr2.signMessage(ethers.utils.arrayify(content));
@@ -217,16 +216,16 @@ describe("AIWorkload", function () {
         { r: signature1.slice(0, 66), s: "0x" + signature1.slice(66, 130), v: parseInt(signature1.slice(130, 132), 16)},
       ];
       
-      await expect(aiWorkload.connect(reporter1).reportWorkload(addr1.address, workload, 1, 1, 1, signatures))
+      await expect(aiWorkload.connect(reporter1).reportWorkload(addr1.address, addr3.address, workload, 1, 1, 1, signatures))
         .to.be.revertedWith("Invalid signature")
       
-      await aiWorkload.connect(addr2).reportWorkload(addr1.address, workload, 1, 1, 1, signatures)
+      await aiWorkload.connect(addr2).reportWorkload(addr1.address, addr3.address, workload, 1, 1, 1, signatures)
     });
   });
 
   describe("getRecentWorkload", function () {
     it("Should calculate recent workload correctly", async function () {
-      let content = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, 100, 1, 1, 1])
+      let content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, addr3.address, 100, 1, 1, 1])
 
       let signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
       let signature2 = await addr2.signMessage(ethers.utils.arrayify(content));
@@ -238,13 +237,13 @@ describe("AIWorkload", function () {
         { r: signature3.slice(0, 66), s: "0x" + signature3.slice(66, 130), v: parseInt(signature3.slice(130, 132), 16)},
       ];
 
-      await aiWorkload.connect(addr1).reportWorkload(addr3.address, 100, 1, 1, 1, signatures);
+      await aiWorkload.connect(addr1).reportWorkload(addr3.address, addr3.address, 100, 1, 1, 1, signatures);
 
       await ethers.provider.send("evm_increaseTime", [60 * 60 * 24]); // Advance 1 day
       await ethers.provider.send("evm_mine");
 
       // const timestamp2 = (await ethers.provider.getBlock("latest")).timestamp;
-      content = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, 200, 1, 1, 2])
+      content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, addr3.address, 200, 1, 1, 2])
 
       signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
       signature2 = await addr2.signMessage(ethers.utils.arrayify(content));
@@ -255,7 +254,7 @@ describe("AIWorkload", function () {
         { r: signature2.slice(0, 66), s: "0x" + signature2.slice(66, 130), v: parseInt(signature2.slice(130, 132), 16)},
         { r: signature3.slice(0, 66), s: "0x" + signature3.slice(66, 130), v: parseInt(signature3.slice(130, 132), 16)},
       ];
-      await aiWorkload.connect(addr1).reportWorkload(addr3.address, 200, 1, 1, 2, signatures);
+      await aiWorkload.connect(addr1).reportWorkload(addr3.address, addr3.address, 200, 1, 1, 2, signatures);
 
       const recentWorkload = await aiWorkload.getTotalWorkerWorkload(addr3.address);
       expect(recentWorkload.totalWorkload).to.equal(300);

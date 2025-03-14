@@ -3,10 +3,12 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./ShareDataType.sol";
 import "./IStake.sol";
 
-abstract contract NodesRegistry is Initializable {
+abstract contract NodesRegistry is Initializable, AccessControl {
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     using EnumerableSet for EnumerableSet.AddressSet;
     struct Node {
         address identifier;
@@ -29,6 +31,7 @@ abstract contract NodesRegistry is Initializable {
     mapping(string => address) private aliasNodes;
     mapping(address => mapping(string => uint256)) public gpuTypeOfNodes;//gpu index
     mapping(string => ComputeAvailable) public gpuSummary;
+    mapping(address => bool) public proxyNodes;
     EnumerableSet.AddressSet private identifiers;
     address public allocator;
     IStake  public stakeToken;
@@ -39,6 +42,7 @@ abstract contract NodesRegistry is Initializable {
     event Authorized(address indexed owner, address indexed spender);
     event NodeAttached(address indexed identifierOfProvider, address indexed identifierOfServer);
     event NodeDetached(address indexed identifierOfProvider, address indexed identifierOfServer);
+    event ProxyNodeRegistered(address indexed proxy);
 
     function _nodesRegistry_initialize(
         NodeInfo[] calldata _nodesInfos,
@@ -54,6 +58,7 @@ abstract contract NodesRegistry is Initializable {
         allocator = _allocator;
         require(_stakeToken != address(0), "Invalid stake token");
         stakeToken = IStake(_stakeToken);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     function registerNode(
@@ -64,6 +69,12 @@ abstract contract NodesRegistry is Initializable {
     ) public payable {
         _registerNode(wallet, msg.sender, aliasIdentifier, gpuTypes, gpuNums);
         _checkRegister(msg.sender);
+    }
+
+    function registerProxyNode(address proxy) public onlyRole(ADMIN_ROLE) {
+        require(!proxyNodes[proxy], "Proxy is exist");
+        proxyNodes[proxy] = true;
+        emit ProxyNodeRegistered(proxy);
     }
 
     function deregisterNode(
@@ -283,4 +294,8 @@ abstract contract NodesRegistry is Initializable {
     function _checkRegister(
         address candidate
     ) internal virtual;
+
+    function renounceRole(bytes32 /*role*/, address /*account*/) public pure override {
+        require(false, "not support");
+    }
 }

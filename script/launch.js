@@ -1,15 +1,18 @@
 async function main() {
     const [owner] = await ethers.getSigners();
-    const IMOENTRY = "0x6A48698F95ea7AE9f6b08a7EC241Ed6026EF0743"
-    const AIMODELS = "0x15A9238912cea445B3827D86B2f8f2b2Ab13370e"
-    const ASSET_ERC20 = "0x5aB0d69bc164F3e7502CE0c8C3a9a7BfEf1EB634"
+    const IMOENTRY = "0xC1E449E7F5EB927f41A14E0E0d2039A6f1518b40"
+    const AIMODELS = "0xdB32354C6a32ff61AEaBa581fCF90D4eD696bA8e"
+    const ASSET_ERC20 = "0x760cfB5D96216a9F3565063400EF550f97f2f723"
+    const MODEL_NAME = "model1"
 
     aiModels = await ethers.getContractAt("AIModels", AIMODELS);
-    imoEntry = await ethers.getContractAt("IMOEntry", IMOENTRY);
+    await aiModels.recordModelUpload(MODEL_NAME, "v1.0", "", 1)
+
     assetToken = await ethers.getContractAt("ERC20Sample", ASSET_ERC20);
-    modelInfo = await aiModels.recordModelUpload("model1", "model1", "model1", 1)
-    await assetToken.approve(imoEntry.address, ethers.utils.parseEther("500"));
-    const tx = await imoEntry.launch("model1", "TT", "Test Description", ethers.utils.parseEther("500"), modelInfo);
+    await assetToken.approve(IMOENTRY, ethers.utils.parseEther("500"));
+
+    imoEntry = await ethers.getContractAt("IMOEntry", IMOENTRY);
+    const tx = await imoEntry.launch(MODEL_NAME, "TT" /* token alias name */, "Test Description", ethers.utils.parseEther("500"));
     await tx.wait();
 }
 

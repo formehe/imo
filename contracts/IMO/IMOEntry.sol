@@ -175,7 +175,7 @@ contract IMOEntry is
 
     function launch(
         string calldata _modelName,
-        string calldata _ticker,
+        string calldata _ticker,// token alias name
         string calldata desc,
         uint256 purchaseAmount
     ) public nonReentrant returns (address, address, uint) {

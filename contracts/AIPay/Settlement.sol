@@ -2,7 +2,9 @@
 pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "./deposit.sol";
+import "./Deposit.sol";
+import "hardhat/console.sol";
+
 
 contract Settlement is AccessControl {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
@@ -82,8 +84,8 @@ contract Settlement is AccessControl {
         uint256 epochId
     ) external onlyRole(OPERATOR_ROLE) {
 
+        console.log("updateUserBalance is 2");
         //换算关系
-
         uint256 needReserveU = UperTokens * workload ;
         // current user balance
         (, uint256 previousBalance) = depositContract.getUserBalance(user);
@@ -91,6 +93,8 @@ contract Settlement is AccessControl {
         require(previousBalance >= needReserveU, "not enought for paying");
 
         depositContract.updateUserBalance(user,previousBalance - needReserveU);
+
+        console.log("updateUserBalance is: %s ", needReserveU);
 
         emit BalanceUpdated(user, previousBalance, userBalances[user]);
         emit WorkloadDeducted(workload, user, worker, modelId, sessionId, epochId);

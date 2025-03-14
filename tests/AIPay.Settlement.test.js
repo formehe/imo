@@ -1,332 +1,202 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { deployAndCloneContract } = require("./utils");
+const toWei = (val) => ethers.utils.parseEther("" + val);
+const { AddressZero } = require("ethers").constants;
 
-describe("IMOEntry Contract", function () {
-  let imoEntry, internalFactory, internalRouter, aiModels;
-  let owner, addr1, admin, feeTo;
-  let assetToken;
-  const UNISWAP_ROUTER = "0xD516492bb58F07bc91c972DCCB2DF654653d4D33";
-
+describe("Settlement Contract", function () {
+  let AIWorkload, aiWorkload;
+  let NodesRegistry, nodesRegistry;
+  let owner, reporter1, reporter2;
+  const ROUND_DURATION_TIME = 3600; // 1 hour
   beforeEach(async function () {
-    [owner, addr1, admin, feeTo] = await ethers.getSigners();
+    //=================== deposit contract part =======================================
+    //set multiple signer
+    [owner, user1, user2, user3] = await ethers.getSigners();
 
-    // token
-    const ERC20Sample = await ethers.getContractFactory("ERC20Sample");
-    assetToken = await ERC20Sample.deploy("Asset Token", "ASSET");
-    await assetToken.deployed();
+    //usdt sample
+    const ERC20Factory = await ethers.getContractFactory("ERC20Sample");
+    usdtToken = await ERC20Factory.connect(owner).deploy("USDTToken", "USDT");
+    await usdtToken.deployed();
 
-    const AIModels = await ethers.getContractFactory("AIModels");
-    aiModels = await AIModels.deploy(addr1.address, admin.address);
-    await aiModels.deployed();
+    // Transfer USDT from owner to user1, user2, user3
+    await usdtToken.connect(owner).transfer(user1.address, toWei(100));
+    await usdtToken.connect(owner).transfer(user2.address, toWei(100));
+    await usdtToken.connect(owner).transfer(user3.address, toWei(100));
 
-    // internal swap
-    // internal factory
-    const InternalFactoryTemplate = await ethers.getContractFactory(
-      "InternalFactory"
-    );
-    const internalFactoryTemplate = await InternalFactoryTemplate.deploy();
-    await internalFactoryTemplate.deployed();
-    let clonedContractAddress = await deployAndCloneContract(
-      ethers,
-      internalFactoryTemplate.address
-    );
-    internalFactory = await ethers.getContractAt(
-      "InternalFactory",
-      clonedContractAddress
-    );
+    //bank contract
+    const BankFactory = await ethers.getContractFactory("Bank");
+    bank = await BankFactory.deploy(usdtToken.address, usdtToken.address);
+    await bank.deployed();
 
-    // internal router
-    const InternalRouterTemplate = await ethers.getContractFactory(
-      "InternalRouter"
-    );
-    const internalRouterTemplate = await InternalRouterTemplate.deploy();
-    await internalRouterTemplate.deployed();
-    clonedContractAddress = await deployAndCloneContract(
-      ethers,
-      internalRouterTemplate.address
-    );
-    internalRouter = await ethers.getContractAt(
-      "InternalRouter",
-      clonedContractAddress
-    );
+    const updateRateTx = await bank.connect(owner).updateRate(toWei("1"));
+    await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
 
-    // model token template
-    const ModelTokenTemplate = await ethers.getContractFactory("ModelToken");
-    modelTokenTemplate = await ModelTokenTemplate.deploy();
-    await modelTokenTemplate.deployed();
-    clonedContractAddress = await deployAndCloneContract(
-      ethers,
-      modelTokenTemplate.address
-    );
-    const modelToken = await ethers.getContractAt(
-      "ModelToken",
-      clonedContractAddress
-    );
+    // deposit
+    const DepositFactory = await ethers.getContractFactory("Deposit");
+    DepositCon = await DepositFactory.deploy(usdtToken.address, bank.address);
+    await DepositCon.deployed();
 
-    const ModelLockTokenTemplate = await ethers.getContractFactory(
-      "ModelLockToken"
+    //settlement
+    const SettlementFactory = await ethers.getContractFactory("Settlement");
+    SettlementCon = await SettlementFactory.connect(owner).deploy(
+      DepositCon.address
     );
-    modelLockTokenTemplate = await ModelLockTokenTemplate.deploy();
-    await modelLockTokenTemplate.deployed();
-    clonedContractAddress = await deployAndCloneContract(
-      ethers,
-      modelLockTokenTemplate.address
-    );
-    const modelLockToken = await ethers.getContractAt(
-      "ModelLockToken",
-      clonedContractAddress
-    );
+    await SettlementCon.deployed();
 
-    const ModelFactoryTemplate = await ethers.getContractFactory(
-      "ModelFactory"
-    );
-    modelFactoryTemplate = await ModelFactoryTemplate.deploy();
-    await modelFactoryTemplate.deployed();
-    clonedContractAddress = await deployAndCloneContract(
-      ethers,
-      modelFactoryTemplate.address
-    );
-    const modelFactory = await ethers.getContractAt(
-      "ModelFactory",
-      clonedContractAddress
-    );
+    //=================== workload contract part =======================================
+    [
+      owner,
+      reporter1,
+      reporter2,
+      addr1,
+      addr2,
+      addr3,
+      addr4,
+      addr5,
+      addr6,
+      addr7,
+    ] = await ethers.getSigners();
 
-    // imo platform entry
-    const IMOEntryTemplate = await ethers.getContractFactory("IMOEntry");
-    imoEntryTemplate = await IMOEntryTemplate.deploy();
-    await imoEntryTemplate.deployed();
-    clonedContractAddress = await deployAndCloneContract(
-      ethers,
-      imoEntryTemplate.address
-    );
-    imoEntry = await ethers.getContractAt("IMOEntry", clonedContractAddress);
+    let nodeInfos = [
+      {
+        identifier: addr1.address,
+        aliasIdentifier: "11111111111111111",
+        wallet: addr1.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+      {
+        identifier: addr2.address,
+        aliasIdentifier: "21111111111111111",
+        wallet: addr2.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+      {
+        identifier: addr3.address,
+        aliasIdentifier: "31111111111111111",
+        wallet: addr3.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+      {
+        identifier: addr4.address,
+        aliasIdentifier: "41111111111111111",
+        wallet: addr4.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+      {
+        identifier: addr5.address,
+        aliasIdentifier: "51111111111111111",
+        wallet: addr5.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+      {
+        identifier: addr6.address,
+        aliasIdentifier: "61111111111111111",
+        wallet: addr6.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+    ];
 
-    // configure erc20 asset
+    const AssetManagement = await ethers.getContractFactory("AssetManagement");
+    const assetManagement = await AssetManagement.deploy();
+    await assetManagement.deployed();
 
-    // configure internal factory
-    await internalFactory.initialize(
-      imoEntry.address /*address taxVault_*/,
-      1 /* %, uint256 buyTax_ */,
-      1 /*%， uint256 sellTax_*/
-    );
-    await internalFactory.grantRole(
-      await internalFactory.CREATOR_ROLE(),
-      imoEntry.address
-    );
-    await internalFactory.grantRole(
-      await internalFactory.ADMIN_ROLE(),
-      admin.address
-    );
-    await internalFactory.connect(admin).setRouter(internalRouter.address);
+    const nodesGovernance = await ethers.getContractFactory("NodesGovernance");
+    const nodesGovernanceCon = await nodesGovernance.deploy();
+    await nodesGovernanceCon.deployed();
 
-    // configure internal router
-    await internalRouter.initialize(
-      internalFactory.address,
-      assetToken.address
+    const AIModelUploadFactory = await ethers.getContractFactory("AIModels");
+    aiModelUpload = await AIModelUploadFactory.deploy(
+      nodesGovernanceCon.address,
+      assetManagement.address
     );
-    await internalRouter.grantRole(
-      await internalRouter.EXECUTOR_ROLE(),
-      imoEntry.address
-    );
+    await aiModelUpload.deployed();
 
-    // configure model factory
-    await modelFactory.initialize(
-      modelToken.address,
-      modelLockToken.address,
-      assetToken.address,
-      1
-    );
-    await modelFactory.grantRole(
-      await modelFactory.BONDING_ROLE(),
-      imoEntry.address
-    );
-    await modelFactory.setTokenAdmin(admin.address);
-    await modelFactory.setUniswapRouter(UNISWAP_ROUTER);
-    await modelFactory.setTokenTaxParams(0, 0, 0);
+    // const modelName = "TestModel";
+    // const modelVersion = "v1.0";
+    // const modelInfo = "Test model description";
 
-    // grant aimodels
-    await aiModels.grantRole(await aiModels.UPLOADER_ROLE(), imoEntry.address);
+    // await aiModelUpload.recordModelUpload(
+    //   modelName,
+    //   modelVersion,
+    //   modelInfo,
+    //   1
+    // );
 
-    // configure IMOEntry
-    await imoEntry.initialize(
-      internalFactory.address,
-      internalRouter.address,
-      imoEntry.address /*address feeTo_*/,
-      500 /** fee 10**12 */,
-      1000000000 /* uint256 initialSupply_ */,
-      30000 /*uint256 assetRate_ ~~100 token*/,
-      99 /*%,uint256 maxTx_*/,
-      modelFactory.address,
-      ethers.utils.parseEther("1000000"), // gradThreshold ~~10^6
-      UNISWAP_ROUTER,
-      aiModels.address
+    AIWorkload = await ethers.getContractFactory("AIWorkload");
+    aiWorkload = await AIWorkload.deploy(
+      nodesGovernanceCon.address,
+      aiModelUpload.address,
+      assetManagement.address,
+      SettlementCon.address
     );
-  });
-
-  it("Should initialize the contract correctly", async function () {
-    expect(await imoEntry.factory()).to.equal(internalFactory.address);
-    expect(await imoEntry.router()).to.equal(internalRouter.address);
-    expect(await imoEntry.fee()).to.equal(
-      ethers.utils.parseEther("1").mul(500).div(1000)
-    );
-    const InternalToken = await ethers.getContractFactory("InternalToken");
-    internalToken = await InternalToken.deploy(
-      "test",
-      "test",
-      100000000,
-      50,
-      UNISWAP_ROUTER
-    );
-    await internalToken.deployed();
-    uniswap_router_v2 = await ethers.getContractAt(
-      "IUniswapV2Router02",
-      UNISWAP_ROUTER
-    );
-    const amountA = ethers.utils.parseEther("10");
-    const amountB = ethers.utils.parseEther("10");
-
-    const blockNumber = await ethers.provider.getBlockNumber(); // 获取最新区块号
-    const block = await ethers.provider.getBlock(blockNumber); // 获取区块详情
-
-    // **5. 允许 Router 转移代币**
-    await expect(
-      internalToken.approve(uniswap_router_v2.address, amountA)
-    ).to.be.revertedWith("No router");
-    await assetToken.approve(uniswap_router_v2.address, amountB);
+    await aiWorkload.deployed();
 
     await expect(
-      uniswap_router_v2.connect(owner).addLiquidity(
-        internalToken.address,
-        assetToken.address,
-        amountA,
-        amountB,
-        0, // 最小 TokenA
-        0, // 最小 TokenB
-        owner.address,
-        block.timestamp + 60000000 * 10 // 超时时间
-      )
-    ).to.be.revertedWith(/transferFrom failed/);
+      AIWorkload.deploy(AddressZero, AddressZero, AddressZero, AddressZero)
+    ).to.be.revertedWith("Invalid node registry");
   });
 
-  it("Should allow the owner to set initial supply", async function () {
-    await imoEntry.setInitialSupply(2000000);
-    expect(await imoEntry.initialSupply()).to.equal(2000000);
-  });
-
-  it("Should create a user profile on launch", async function () {
-    await assetToken.transfer(addr1.address, ethers.utils.parseEther("1000"));
-    await assetToken
-      .connect(addr1)
-      .approve(imoEntry.address, ethers.utils.parseEther("1000"));
-
-    modelInfo = await aiModels.encodeModelInfo("model1", "model1", "model1");
-
-    const tx = await imoEntry
-      .connect(addr1)
-      .launch(
-        "Test Token",
-        "TT",
-        "Test Description",
-        ethers.utils.parseEther("2"),
-        modelInfo
-      );
-    await tx.wait();
-
-    const profile = await imoEntry.profile(addr1.address);
-    expect(profile).to.equal(addr1.address);
-  });
-
-  it("Should allow buying and update token data", async function () {
-    await assetToken.transfer(addr1.address, ethers.utils.parseEther("1000"));
-    await assetToken
-      .connect(addr1)
-      .approve(imoEntry.address, ethers.utils.parseEther("1000"));
-
-    modelInfo = await aiModels.encodeModelInfo("model1", "model1", "model1");
-    const tx = await imoEntry
-      .connect(addr1)
-      .launch(
-        "Test Token",
-        "TT",
-        "Test Description",
-        ethers.utils.parseEther("500"),
-        modelInfo
-      );
-    await tx.wait();
-
-    const tokenAddress = (await imoEntry.tokenInfos(0)).toString();
-    expect(tokenAddress).to.not.equal(ethers.constants.AddressZero);
-
-    await assetToken
-      .connect(addr1)
-      .approve(internalRouter.address, ethers.utils.parseEther("500"));
-
-    await imoEntry
-      .connect(addr1)
-      .buy(ethers.utils.parseEther("10"), tokenAddress);
-    const tokenData = await imoEntry.tokenInfo(tokenAddress);
-    expect(tokenData.data.volume).to.not.equal(0);
-  });
-
-  it("Should allow selling and update token data", async function () {
-    await assetToken.transfer(
-      addr1.address,
-      ethers.utils.parseEther("2000000")
+  // it("Should initialize the contract correctly", async function () {
+  //   await aiWorkload
+  //     .connect(reporter1)
+  //     .reportWorkload(addr1.address, addr3.address, 100, 1, 1, 1, []);
+  // });
+  it("Should record workload and emit WorkloadReported event", async function () {
+    const workload = 200;
+    const content = ethers.utils.defaultAbiCoder.encode(
+      ["address", "address", "uint256", "uint256", "uint256", "uint256"],
+      [addr3.address, addr3.address, workload, 1, 1, 1]
     );
-    await assetToken.transfer(
-      admin.address,
-      ethers.utils.parseEther("2000000")
-    );
-    await assetToken
-      .connect(addr1)
-      .approve(imoEntry.address, ethers.utils.parseEther("2000000"));
 
-    modelInfo = await aiModels.encodeModelInfo("model1", "model1", "model1");
-    const tx = await imoEntry
+    const signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
+    const signature2 = await addr2.signMessage(ethers.utils.arrayify(content));
+    const signature3 = await addr3.signMessage(ethers.utils.arrayify(content));
+
+    const signatures = [
+      {
+        r: signature1.slice(0, 66),
+        s: "0x" + signature1.slice(66, 130),
+        v: parseInt(signature1.slice(130, 132), 16),
+      },
+      {
+        r: signature2.slice(0, 66),
+        s: "0x" + signature2.slice(66, 130),
+        v: parseInt(signature2.slice(130, 132), 16),
+      },
+      {
+        r: signature3.slice(0, 66),
+        s: "0x" + signature3.slice(66, 130),
+        v: parseInt(signature3.slice(130, 132), 16),
+      },
+    ];
+
+    const tx = await aiWorkload
       .connect(addr1)
-      .launch(
-        "Test Token",
-        "TT",
-        "Test Description",
-        ethers.utils.parseEther("500"),
-        modelInfo
+      .reportWorkload(
+        addr3.address,
+        addr3.address,
+        workload,
+        1,
+        1,
+        1,
+        signatures
       );
-    await tx.wait();
 
-    const tokenAddress = (await imoEntry.tokenInfos(0)).toString();
-    expect(tokenAddress).to.not.equal(ethers.constants.AddressZero);
+    const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+    await expect(tx)
+      .to.emit(aiWorkload, "WorkloadReported")
+      .withArgs(1, addr1.address, addr3.address, 1, workload, 1);
 
-    await assetToken
-      .connect(addr1)
-      .approve(internalRouter.address, ethers.utils.parseEther("1100000"));
-    await imoEntry
-      .connect(addr1)
-      .buy(ethers.utils.parseEther("100"), tokenAddress);
-
-    internalToken = await ethers.getContractAt("InternalToken", tokenAddress);
-    await internalToken
-      .connect(addr1)
-      .approve(internalRouter.address, ethers.utils.parseEther("500"));
-    await imoEntry
-      .connect(addr1)
-      .sell(ethers.utils.parseEther("5"), tokenAddress);
-
-    await assetToken
-      .connect(admin)
-      .approve(internalRouter.address, ethers.utils.parseEther("1100000"));
-    await imoEntry
-      .connect(admin)
-      .buy(ethers.utils.parseEther("100"), tokenAddress);
-
-    const tokenData = await imoEntry.tokenInfo(tokenAddress);
-    expect(tokenData.data.volume).to.not.equal(0);
-    await expect(
-      imoEntry
-        .connect(addr1)
-        .buy(ethers.utils.parseEther("1090000"), tokenAddress)
-    ).to.emit(imoEntry, "Graduated");
-
-    await imoEntry.unwrapToken(tokenAddress, [admin.address]);
+    const totalWorkload = await aiWorkload.getTotalWorkerWorkload(
+      addr3.address
+    );
+    expect(totalWorkload.totalWorkload).to.equal(workload);
   });
 });

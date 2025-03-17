@@ -102,8 +102,10 @@ contract IMOEntry is
         router = InternalRouter(router_);
         aiModels = AIModels(aiModels_);
 
+        address assetToken = router.assetToken();
+
         _feeTo = feeTo_;
-        fee = (fee_ * 1 ether) / 1000;
+        fee = (fee_ * (10 ** IERC20Metadata(assetToken).decimals())) / 1000;
 
         initialSupply = initialSupply_;
         assetRate = assetRate_;
@@ -192,6 +194,7 @@ contract IMOEntry is
             IERC20(assetToken).balanceOf(msg.sender) >= purchaseAmount,
             "Insufficient amount"
         );
+
         uint256 initialPurchase = (purchaseAmount - fee);
         IERC20(assetToken).safeTransferFrom(msg.sender, _feeTo, fee);
         IERC20(assetToken).safeTransferFrom(
@@ -210,7 +213,14 @@ contract IMOEntry is
         require(approved, "Not approved");
 
         uint256 k = ((K * 10000) / assetRate);
-        uint256 liquidity = (((k * 10000 ether) / supply) * 1 ether) / 10000;
+        uint256 liquidity;
+        
+        if (IERC20Metadata(assetToken).decimals() >=12) {
+            liquidity = (((k * (10000 * 10 ** IERC20Metadata(assetToken).decimals())) / supply) * 1 ether) / 10000;
+        } else {
+            liquidity = (((k * (10000 * 10 ** IERC20Metadata(assetToken).decimals())) * 1 ether / supply)) / 10000;
+        }
+        
 
         router.addInitialLiquidity(address(token), supply, liquidity);
 
@@ -265,7 +275,6 @@ contract IMOEntry is
         IERC20(assetToken).approve(address(router), initialPurchase);
         router.buy(initialPurchase, address(token), address(this));
         token.transfer(msg.sender, token.balanceOf(address(this)));
-
         return (address(token), _pair, tokenInfos.length);
     }
 

@@ -12,6 +12,7 @@
   "devDependencies": {
     "@nomiclabs/hardhat-etherscan": "^3.0.3",
     "@nomiclabs/hardhat-waffle": "^2.0.3",
+    "@onmychain/hardhat-uniswap-v2-deploy-plugin": "^1.0.4",
     "@openzeppelin/contracts": "4.6",
     "@openzeppelin/contracts-upgradeable": "^4.6",
     "@solarity/hardhat-gobind": "^1.2.2",

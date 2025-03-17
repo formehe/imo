@@ -1,18 +1,21 @@
 const { expect } = require("chai");
-const { ethers, upgrades } = require("hardhat");
+const { ethers, upgrades, UniswapV2Deployer } = require("hardhat");
 const { deployAndCloneContract } = require("./utils")
 
 describe("InternalFactory Contract", function () {
     let internalFactory, internalRouter, erc20Sample;
     let owner, creator, user1, user2, admin;
-    let internalToken, taxVault, router;
+    let internalToken, taxVault;
     const buyTax = 1;  // 1% 购买税
     const sellTax = 2; // 2% 卖出税
     const totalSupply = 10000000000;
-    const UNISWAP_ROUTER = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+    let UNISWAP_ROUTER;
 
     beforeEach(async function () {
-        [owner, creator, user1, user2, taxVault, router, admin] = await ethers.getSigners();
+        [owner, creator, user1, user2, taxVault, admin] = await ethers.getSigners();
+
+        const { factory, router, weth9 } = await UniswapV2Deployer.deploy(owner);
+        UNISWAP_ROUTER = router.address;
 
         const ERC20Sample = await ethers.getContractFactory("ERC20Sample");
         erc20Sample = await ERC20Sample.deploy("Asset Token", "ASSET");
@@ -45,7 +48,7 @@ describe("InternalFactory Contract", function () {
         await internalFactory.connect(admin).setRouter(internalRouter.address)
 
         // configure internal router
-        await internalRouter.grantRole(await internalRouter.EXECUTOR_ROLE(), router.address)
+        await internalRouter.grantRole(await internalRouter.EXECUTOR_ROLE(), admin.address)
     });
 
     it("should initialize correctly", async function () {

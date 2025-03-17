@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { ethers, upgrades } = require("hardhat");
+const { ethers, upgrades, UniswapV2Deployer} = require("hardhat");
 const {deployAndCloneContract} = require("./utils");
 const internal = require("stream");
 
@@ -10,10 +10,13 @@ describe("InternalRouter Contract", function () {
     const buyTax  = 2;  // 2% 购买税
     const sellTax = 3; // 3% 卖出税
     const totalSupply = 10000000000;
-    const UNISWAP_ROUTER = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+    let UNISWAP_ROUTER;
 
     beforeEach(async function () {
         [owner, executor, user1, user2, taxVault, creator, admin] = await ethers.getSigners();
+
+        const { factory, router, weth9 } = await UniswapV2Deployer.deploy(owner);
+        UNISWAP_ROUTER = router.address; 
 
         const Token = await ethers.getContractFactory("ERC20Sample");
         assetToken = await Token.deploy("Asset Token", "AST");

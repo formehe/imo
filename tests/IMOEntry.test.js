@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers,  UniswapV2Deployer} = require("hardhat");
 const { deployAndCloneContract } = require("./utils")
 
 describe("IMOEntry Contract", function () {
@@ -7,10 +7,13 @@ describe("IMOEntry Contract", function () {
   let owner, addr1, admin, feeTo;
   let assetToken;
   let decimal;
-  const UNISWAP_ROUTER = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+  let UNISWAP_ROUTER;
 
   beforeEach(async function () {
     [owner, addr1, admin, feeTo] = await ethers.getSigners();
+
+    const { factory, router, weth9 } = await UniswapV2Deployer.deploy(owner);
+    UNISWAP_ROUTER = router.address;
 
     // token
     const ERC20Sample = await ethers.getContractFactory("ERC20Sample");
@@ -127,7 +130,7 @@ describe("IMOEntry Contract", function () {
         0, // 最小 TokenB
         owner.address,
         block.timestamp + 60000000 * 10 // 超时时间
-    )).to.be.revertedWith(/transferFrom failed/);
+    )).to.be.revertedWith(/TRANSFER_FROM_FAILED/);
   });
 
   it("Should allow the owner to set initial supply", async function () {

@@ -12,17 +12,28 @@ describe("Settlement Contract", function () {
   beforeEach(async function () {
     //=================== deposit contract part =======================================
     //set multiple signer
-    [owner, user1, user2, user3] = await ethers.getSigners();
-
+    // [owner, user1, user2, user3] = await ethers.getSigners();
+    [
+      owner,
+      reporter1,
+      reporter2,
+      addr1,
+      addr2,
+      addr3,
+      addr4,
+      addr5,
+      addr6,
+      addr7,
+    ] = await ethers.getSigners();
     //usdt sample
     const ERC20Factory = await ethers.getContractFactory("ERC20Sample");
     usdtToken = await ERC20Factory.connect(owner).deploy("USDTToken", "USDT");
     await usdtToken.deployed();
 
     // Transfer USDT from owner to user1, user2, user3
-    await usdtToken.connect(owner).transfer(user1.address, toWei(100));
-    await usdtToken.connect(owner).transfer(user2.address, toWei(100));
-    await usdtToken.connect(owner).transfer(user3.address, toWei(100));
+    await usdtToken.connect(owner).transfer(addr1.address, toWei(1000));
+    await usdtToken.connect(owner).transfer(addr2.address, toWei(1000));
+    await usdtToken.connect(owner).transfer(addr3.address, toWei(1000));
 
     //bank contract
     const BankFactory = await ethers.getContractFactory("Bank");
@@ -40,23 +51,12 @@ describe("Settlement Contract", function () {
     //settlement
     const SettlementFactory = await ethers.getContractFactory("Settlement");
     SettlementCon = await SettlementFactory.connect(owner).deploy(
-      DepositCon.address
+      DepositCon.address,
+      bank.address
     );
     await SettlementCon.deployed();
 
     //=================== workload contract part =======================================
-    [
-      owner,
-      reporter1,
-      reporter2,
-      addr1,
-      addr2,
-      addr3,
-      addr4,
-      addr5,
-      addr6,
-      addr7,
-    ] = await ethers.getSigners();
 
     let nodeInfos = [
       {
@@ -111,6 +111,13 @@ describe("Settlement Contract", function () {
     const nodesGovernanceCon = await nodesGovernance.deploy();
     await nodesGovernanceCon.deployed();
 
+    await nodesGovernanceCon.nodesGovernance_initialize(
+      nodeInfos,
+      addr1.address,
+      ROUND_DURATION_TIME,
+      assetManagement.address
+    );
+
     const AIModelUploadFactory = await ethers.getContractFactory("AIModels");
     aiModelUpload = await AIModelUploadFactory.deploy(
       nodesGovernanceCon.address,
@@ -118,16 +125,16 @@ describe("Settlement Contract", function () {
     );
     await aiModelUpload.deployed();
 
-    // const modelName = "TestModel";
-    // const modelVersion = "v1.0";
-    // const modelInfo = "Test model description";
+    const modelName = "TestModel";
+    const modelVersion = "v1.0";
+    const modelInfo = "Test model description";
 
-    // await aiModelUpload.recordModelUpload(
-    //   modelName,
-    //   modelVersion,
-    //   modelInfo,
-    //   1
-    // );
+    await aiModelUpload.recordModelUpload(
+      modelName,
+      modelVersion,
+      modelInfo,
+      1
+    );
 
     AIWorkload = await ethers.getContractFactory("AIWorkload");
     aiWorkload = await AIWorkload.deploy(
@@ -141,6 +148,14 @@ describe("Settlement Contract", function () {
     await expect(
       AIWorkload.deploy(AddressZero, AddressZero, AddressZero, AddressZero)
     ).to.be.revertedWith("Invalid node registry");
+
+    //grantrole
+    const MINTER_ROLE = ethers.utils.keccak256(
+      ethers.utils.toUtf8Bytes("OPERATOR_ROLE")
+    );
+    await SettlementCon.grantRole(MINTER_ROLE, aiWorkload.address);
+
+    await DepositCon.grantRole(MINTER_ROLE, SettlementCon.address);
   });
 
   // it("Should initialize the contract correctly", async function () {
@@ -149,6 +164,14 @@ describe("Settlement Contract", function () {
   //     .reportWorkload(addr1.address, addr3.address, 100, 1, 1, 1, []);
   // });
   it("Should record workload and emit WorkloadReported event", async function () {
+    //usdt approve contract to spend
+    await usdtToken.connect(addr3).approve(DepositCon.address, toWei("200"));
+    //deposit
+    await DepositCon.connect(addr3).deposit(toWei("200"));
+
+    //check the addr1 by getUserBalance
+    const userBalance = await DepositCon.getUserBalance(addr3.address);
+    console.log("userBalance:", userBalance);
     const workload = 200;
     const content = ethers.utils.defaultAbiCoder.encode(
       ["address", "address", "uint256", "uint256", "uint256", "uint256"],
@@ -177,17 +200,15 @@ describe("Settlement Contract", function () {
       },
     ];
 
-    const tx = await aiWorkload
-      .connect(addr1)
-      .reportWorkload(
-        addr3.address,
-        addr3.address,
-        workload,
-        1,
-        1,
-        1,
-        signatures
-      );
+    const tx = await aiWorkload.connect(addr1).reportWorkload(
+      addr3.address,
+      addr3.address, //user need deposit
+      workload,
+      1,
+      1,
+      1,
+      signatures
+    );
 
     const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
     await expect(tx)

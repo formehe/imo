@@ -79,6 +79,7 @@ contract AIWorkload {
             bool duplicate = false;
             bytes memory signatureBytes = abi.encodePacked(signatures[i].r, signatures[i].s, signatures[i].v);
             (address _address,) = ECDSA.tryRecover(ECDSA.toEthSignedMessageHash(content), signatureBytes);
+            console.log("_address:",_address);
             if (!nodeRegistry.get(_address).active) {
                 continue;
             }
@@ -95,10 +96,12 @@ contract AIWorkload {
             }
 
             if (_address == worker) {
+
                 containsWorker = true;
             }
 
             if (_address == reporter) {
+
                 containsReporter = true;
             }
 
@@ -108,6 +111,11 @@ contract AIWorkload {
 
         if (votes < ((signatures.length + 1) / 2)
             || !containsWorker || !containsReporter) {
+
+            console.log("worker:",worker);
+            console.log("reporter:",reporter);
+            console.log("containsWorker: ",containsWorker);
+            console.log("containsReporter: ",containsReporter);
             return false;
         }
 
@@ -131,6 +139,7 @@ contract AIWorkload {
         require(user != address(0), "Invalid user");
         console.log("==== reportWorkload epochId is 2");
         (uint256 tmpModelId, , , , , ,) = modelRegistry.uploadModels(modelId);
+        console.log("tmpModelId:",tmpModelId);
         require(tmpModelId == modelId, "Model not exist");
 
         console.log("==== reportWorkload epochId is 3");

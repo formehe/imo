@@ -3,11 +3,12 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./ShareDataType.sol";
 import "./NodesRegistry.sol";
 import "./AIModels.sol";
 
-contract AIWorkload {
+contract AIWorkload is ReentrancyGuard{
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
@@ -114,7 +115,7 @@ contract AIWorkload {
         uint256 sessionId,
         uint256 epochId,
         Signature[] calldata signatures
-    ) external {
+    ) nonReentrant external {
         require(worker != address(0), "Invalid owner address");
         require(workload > 0, "Workload must be greater than zero");
         require(signatures.length >= 3, "Length of signatures must more than 3");

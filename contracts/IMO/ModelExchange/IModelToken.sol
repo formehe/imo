@@ -22,13 +22,6 @@ interface IModelToken is
         uint256 lpToken
     );
 
-    event LimitsUpdated(
-        uint256 oldMaxTokensPerTransaction,
-        uint256 newMaxTokensPerTransaction,
-        uint256 oldMaxTokensPerWallet,
-        uint256 newMaxTokensPerWallet
-    );
-
     event LiquidityPoolCreated(address addedPool);
 
     event LiquidityPoolAdded(address addedPool);
@@ -41,8 +34,6 @@ interface IModelToken is
         uint256 oldSellBasisPoints,
         uint256 newSellBasisPoints
     );
-
-    event RevenueAutoSwap();
 
     event ProjectTaxRecipientUpdated(address treasury);
 

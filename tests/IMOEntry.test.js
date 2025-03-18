@@ -141,10 +141,13 @@ describe("IMOEntry Contract", function () {
   it("Should create a user profile on launch", async function () {
     amount = ethers.BigNumber.from(10).pow(decimal).mul(1000)
     await assetToken.transfer(addr1.address, amount);
-    await assetToken.connect(addr1).approve(imoEntry.address, amount);
-
+    
     await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 1)
-
+    await expect(imoEntry.connect(addr1).launch("model1", "TT", "Test Description", 2)).
+      to.be.revertedWith("Purchase amount must be greater than fee")
+    await expect(imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.BigNumber.from(10).pow(decimal).mul(2))).
+      to.be.revertedWith(/insufficient/)
+    await assetToken.connect(addr1).approve(imoEntry.address, amount);
     const tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.BigNumber.from(10).pow(decimal).mul(2));
     await tx.wait();
 
@@ -194,7 +197,7 @@ describe("IMOEntry Contract", function () {
 
     await assetToken.connect(admin).approve(internalRouter.address, ethers.BigNumber.from(10).pow(decimal).mul(1100000));
     await imoEntry.connect(admin).buy(ethers.BigNumber.from(10).pow(decimal).mul(100), tokenAddress);
-
+    await expect(imoEntry.unwrapToken(tokenAddress, [admin.address])).to.be.revertedWith("Token is not graduated yet")
     const tokenData = await imoEntry.tokenInfo(tokenAddress);
     expect(tokenData.data.volume).to.not.equal(0);
     // await expect(imoEntry.connect(addr1).buy(ethers.utils.parseEther("1090000"), tokenAddress)).to.emit(imoEntry, "Graduated");
@@ -208,5 +211,6 @@ describe("IMOEntry Contract", function () {
 
     await modelLockToken.connect(addr1).withdraw(amount)
     await imoEntry.unwrapToken(tokenAddress, [admin.address])
+    await expect(imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(1090000), tokenAddress)).to.be.revertedWith("Token not trading");
   });
 });

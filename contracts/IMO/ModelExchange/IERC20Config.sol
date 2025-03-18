@@ -2,18 +2,6 @@
 pragma solidity ^0.8.2;
 
 interface IERC20Config {
-  struct ERC20Config {
-    bytes baseParameters;
-    bytes supplyParameters;
-    bytes taxParameters;
-    bytes poolParameters;
-  }
-
-  struct ERC20BaseParameters {
-    string name;
-    string symbol;
-  }
-
   struct ERC20SupplyParameters {
     uint256 maxSupply;
     uint256 lpSupply;

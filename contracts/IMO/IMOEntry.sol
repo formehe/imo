@@ -74,7 +74,6 @@ contract IMOEntry is
     mapping(string => address) public modelLaunched;
 
     event Launched(address indexed token, address indexed pair, uint tokenLenth);
-    event Deployed(address indexed token, uint256 amount0, uint256 amount1);
     event Graduated(address indexed token, address modelToken);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -221,7 +220,6 @@ contract IMOEntry is
             liquidity = (((k * (10000 * 10 ** IERC20Metadata(assetToken).decimals())) * 1 ether / supply)) / 10000;
         }
         
-
         router.addInitialLiquidity(address(token), supply, liquidity);
 
         Data memory _data = Data({

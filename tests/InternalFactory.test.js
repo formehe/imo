@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const { ethers, upgrades, UniswapV2Deployer } = require("hardhat");
 const { deployAndCloneContract } = require("./utils")
+const { AddressZero } = require("ethers").constants
 
 describe("InternalFactory Contract", function () {
     let internalFactory, internalRouter, erc20Sample;
@@ -69,6 +70,9 @@ describe("InternalFactory Contract", function () {
         expect(await internalFactory.getPair(erc20Sample.address, internalToken.address)).to.equal(pairAddress);
         expect(await internalFactory.getPair(erc20Sample.address, internalToken.address)).to.equal(pairAddress);
         expect(await internalFactory.allPairsLength()).to.equal(1);
+
+        await expect(internalFactory.connect(creator).createPair(AddressZero, internalToken.address)).to.be.revertedWith(/Zero addresses/)
+        await expect(internalFactory.connect(creator).createPair(erc20Sample.address, AddressZero)).to.be.revertedWith(/Zero addresses/)
     });
 
     it("should prevent non-creator from creating a pair", async function () {

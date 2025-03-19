@@ -25,6 +25,16 @@ describe("Settlement Contract", function () {
       addr6,
       addr7,
     ] = await ethers.getSigners();
+
+    // console.log("Signers:", {
+    //   owner: owner.address,
+    //   reporter1: reporter1.address,
+    //   reporter2: reporter2.address,
+    //   addr1: addr1.address,
+    //   addr2: addr2.address,
+    //   addr3: addr3.address,
+    //   addr4: addr4.address,
+    // });
     //usdt sample
     const ERC20Factory = await ethers.getContractFactory("ERC20Sample");
     usdtToken = await ERC20Factory.connect(owner).deploy("USDTToken", "USDT");

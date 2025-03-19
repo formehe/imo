@@ -58,8 +58,6 @@ contract ModelFactory is
 
     mapping(uint256 => Application) private _applications;
 
-    event ImplContractsUpdated(address token, address dao);
-
     bool internal locked;
 
     modifier noReentrant() {

@@ -1,20 +1,26 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers,  UniswapV2Deployer} = require("hardhat");
 const { deployAndCloneContract } = require("./utils")
 
 describe("IMOEntry Contract", function () {
   let imoEntry, internalFactory, internalRouter, aiModels, modelFactory;
   let owner, addr1, admin, feeTo;
   let assetToken;
-  const UNISWAP_ROUTER = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+  let decimal;
+  let UNISWAP_ROUTER;
 
   beforeEach(async function () {
     [owner, addr1, admin, feeTo] = await ethers.getSigners();
+
+    const { factory, router, weth9 } = await UniswapV2Deployer.deploy(owner);
+    UNISWAP_ROUTER = router.address;
 
     // token
     const ERC20Sample = await ethers.getContractFactory("ERC20Sample");
     assetToken = await ERC20Sample.deploy("Asset Token", "ASSET");
     await assetToken.deployed();
+
+    decimal = await assetToken.decimals()
 
     const AIModels = await ethers.getContractFactory("AIModels");
     aiModels = await AIModels.deploy(addr1.address, admin.address)
@@ -100,13 +106,13 @@ describe("IMOEntry Contract", function () {
   it("Should initialize the contract correctly", async function () {
     expect(await imoEntry.factory()).to.equal(internalFactory.address);
     expect(await imoEntry.router()).to.equal(internalRouter.address);
-    expect(await imoEntry.fee()).to.equal(ethers.utils.parseEther("1").mul(500).div(1000));
+    expect(await imoEntry.fee()).to.equal(ethers.BigNumber.from(10).pow(decimal).mul(500).div(1000));
     const InternalToken = await ethers.getContractFactory("InternalToken");
     internalToken = await InternalToken.deploy("test", "test", 100000000, 50, UNISWAP_ROUTER);
     await internalToken.deployed();
     uniswap_router_v2 = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
     const amountA = ethers.utils.parseEther("10");
-    const amountB = ethers.utils.parseEther("10");
+    const amountB = ethers.BigNumber.from(10).pow(decimal).mul(10)
 
     const blockNumber = await ethers.provider.getBlockNumber(); // 获取最新区块号
     const block = await ethers.provider.getBlock(blockNumber);  // 获取区块详情
@@ -124,7 +130,7 @@ describe("IMOEntry Contract", function () {
         0, // 最小 TokenB
         owner.address,
         block.timestamp + 60000000 * 10 // 超时时间
-    )).to.be.revertedWith(/transferFrom failed/);
+    )).to.be.revertedWith(/TRANSFER_FROM_FAILED/);
   });
 
   it("Should allow the owner to set initial supply", async function () {
@@ -133,12 +139,16 @@ describe("IMOEntry Contract", function () {
   });
 
   it("Should create a user profile on launch", async function () {
-    await assetToken.transfer(addr1.address, ethers.utils.parseEther("1000"));
-    await assetToken.connect(addr1).approve(imoEntry.address, ethers.utils.parseEther("1000"));
-
+    amount = ethers.BigNumber.from(10).pow(decimal).mul(1000)
+    await assetToken.transfer(addr1.address, amount);
+    
     await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 1)
-
-    const tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.utils.parseEther("2"));
+    await expect(imoEntry.connect(addr1).launch("model1", "TT", "Test Description", 2)).
+      to.be.revertedWith("Purchase amount must be greater than fee")
+    await expect(imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.BigNumber.from(10).pow(decimal).mul(2))).
+      to.be.revertedWith(/insufficient/)
+    await assetToken.connect(addr1).approve(imoEntry.address, amount);
+    const tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.BigNumber.from(10).pow(decimal).mul(2));
     await tx.wait();
 
     const profile = await imoEntry.profile(addr1.address);
@@ -146,49 +156,52 @@ describe("IMOEntry Contract", function () {
   });
 
   it("Should allow buying and update token data", async function () {
-    await assetToken.transfer(addr1.address, ethers.utils.parseEther("1000"));
-    await assetToken.connect(addr1).approve(imoEntry.address, ethers.utils.parseEther("1000"));
+    amount1 = ethers.BigNumber.from(10).pow(decimal).mul(1000)
+    amount2 = ethers.BigNumber.from(10).pow(decimal).mul(500)
+    await assetToken.transfer(addr1.address,  amount1);
+    await assetToken.connect(addr1).approve(imoEntry.address,  amount1);
 
     await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 1)
-    const tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.utils.parseEther("500"));
+    const tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description",  amount2);
     await tx.wait();
 
     const tokenAddress = (await imoEntry.tokenInfos(0)).toString();
     expect(tokenAddress).to.not.equal(ethers.constants.AddressZero);
 
-    await assetToken.connect(addr1).approve(internalRouter.address, ethers.utils.parseEther("500"));
+    await assetToken.connect(addr1).approve(internalRouter.address,  amount2);
 
-    await imoEntry.connect(addr1).buy(ethers.utils.parseEther("10"), tokenAddress);
+    await imoEntry.connect(addr1).buy( ethers.BigNumber.from(10).pow(decimal).mul(10), tokenAddress);
     const tokenData = await imoEntry.tokenInfo(tokenAddress);
     expect(tokenData.data.volume).to.not.equal(0);
   });
 
   it("Should allow selling and update token data", async function () {
-    await assetToken.transfer(addr1.address, ethers.utils.parseEther("2000000"));
-    await assetToken.transfer(admin.address, ethers.utils.parseEther("2000000"));
-    await assetToken.connect(addr1).approve(imoEntry.address, ethers.utils.parseEther("2000000"));
+    amount1 = ethers.BigNumber.from(10).pow(decimal).mul(2000000)
+    await assetToken.transfer(addr1.address, amount1);
+    await assetToken.transfer(admin.address, amount1);
+    await assetToken.connect(addr1).approve(imoEntry.address, amount1);
 
     await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 1)
-    let tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.utils.parseEther("500"));
+    let tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.BigNumber.from(10).pow(decimal).mul(500));
     await tx.wait();
 
     const tokenAddress = (await imoEntry.tokenInfos(0)).toString();
     expect(tokenAddress).to.not.equal(ethers.constants.AddressZero);
 
-    await assetToken.connect(addr1).approve(internalRouter.address, ethers.utils.parseEther("1100000"));
-    await imoEntry.connect(addr1).buy(ethers.utils.parseEther("100"), tokenAddress);
+    await assetToken.connect(addr1).approve(internalRouter.address, ethers.BigNumber.from(10).pow(decimal).mul(1100000));
+    await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(100), tokenAddress);
 
     internalToken = await ethers.getContractAt("InternalToken", tokenAddress);
     await internalToken.connect(addr1).approve(internalRouter.address, ethers.utils.parseEther("500"));
     await imoEntry.connect(addr1).sell(ethers.utils.parseEther("5"), tokenAddress);
 
-    await assetToken.connect(admin).approve(internalRouter.address, ethers.utils.parseEther("1100000"));
-    await imoEntry.connect(admin).buy(ethers.utils.parseEther("100"), tokenAddress);
-
+    await assetToken.connect(admin).approve(internalRouter.address, ethers.BigNumber.from(10).pow(decimal).mul(1100000));
+    await imoEntry.connect(admin).buy(ethers.BigNumber.from(10).pow(decimal).mul(100), tokenAddress);
+    await expect(imoEntry.unwrapToken(tokenAddress, [admin.address])).to.be.revertedWith("Token is not graduated yet")
     const tokenData = await imoEntry.tokenInfo(tokenAddress);
     expect(tokenData.data.volume).to.not.equal(0);
     // await expect(imoEntry.connect(addr1).buy(ethers.utils.parseEther("1090000"), tokenAddress)).to.emit(imoEntry, "Graduated");
-    tx = await imoEntry.connect(addr1).buy(ethers.utils.parseEther("1090000"), tokenAddress);
+    tx = await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(1090000), tokenAddress);
     const receipt = await tx.wait(); // 等待交易确认
     const logs = receipt.events.find(e => e.address === modelFactory.address);
     
@@ -198,5 +211,6 @@ describe("IMOEntry Contract", function () {
 
     await modelLockToken.connect(addr1).withdraw(amount)
     await imoEntry.unwrapToken(tokenAddress, [admin.address])
+    await expect(imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(1090000), tokenAddress)).to.be.revertedWith("Token not trading");
   });
 });

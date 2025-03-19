@@ -3,13 +3,14 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./ShareDataType.sol";
 import "./NodesRegistry.sol";
 import "./AIModels.sol";
 import "../AIPay/Settlement.sol";
 import "hardhat/console.sol";
 
-contract AIWorkload {
+contract AIWorkload is ReentrancyGuard{
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
@@ -130,9 +131,8 @@ contract AIWorkload {
         uint256 sessionId,
         uint256 epochId,
         Signature[] calldata signatures
-    ) external {
 
-
+    ) nonReentrant external {
         require(worker != address(0), "Invalid owner address");
         require(workload > 0, "Workload must be greater than zero");
         require(signatures.length >= 3, "Length of signatures must more than 3");
@@ -227,59 +227,42 @@ contract AIWorkload {
             "Settlement not due yet"
         );
 
-        NodeSettleWorkload[] memory tmpSettledWorkers = new NodeSettleWorkload[](workers.length());
-        uint256 count = 0;
+        settledWorkers = new NodeSettleWorkload[](workers.length());
         for (uint256 i = 0; i < workers.length(); i++) {
             WorkLoad storage workload = totalWorkerWorkload[workers.at(i)];
             if (workload.totalWorkload <= workload.settledWorkload) {
-                continue;
+                settledWorkers[i].workload = 0;
+            } else {
+                settledWorkers[i].workload = workload.totalWorkload - workload.settledWorkload;
             }
 
-            tmpSettledWorkers[count].node = workers.at(i);
-            tmpSettledWorkers[count].workload = workload.totalWorkload - workload.settledWorkload;
-
-            count++;
+            settledWorkers[i].node = workers.at(i);
         }
 
-        settledWorkers = new NodeSettleWorkload[](count);
-        for (uint256 i = 0; i < count; i++) {
-            settledWorkers[i] = tmpSettledWorkers[i];
-        }
 
-        ModelSettleWorkload[] memory tmpSettledModels = new ModelSettleWorkload[](models.length());
-        count = 0;
+        settledModels = new ModelSettleWorkload[](models.length());
         for (uint256 i = 0; i < models.length(); i++) {
             WorkLoad storage workload = totalModelWorkload[models.at(i)];
             if (workload.totalWorkload <= workload.settledWorkload) {
-                continue;
+                settledModels[i].workload = 0;
+            } else {
+                settledModels[i].workload = workload.totalWorkload - workload.settledWorkload;
             }
 
-            tmpSettledModels[count].modelId = models.at(i);
-            tmpSettledModels[count].workload = workload.totalWorkload - workload.settledWorkload;
-            count++;
+            settledModels[i].modelId = models.at(i);
         }
 
-        settledModels = new ModelSettleWorkload[](count);
-        for (uint256 i = 0; i < count; i++) {
-            settledModels[i] = tmpSettledModels[i];
-        }
-
-        NodeSettleWorkload[] memory tmpSettledReporters = new NodeSettleWorkload[](reporters.length());
-        count = 0;
+        settledReporters = new NodeSettleWorkload[](reporters.length());
         for (uint256 i = 0; i < reporters.length(); i++) {
             WorkLoad storage workload = totalWorkReports[reporters.at(i)];
             if (workload.totalWorkload <= workload.settledWorkload) {
-                continue;
+                settledReporters[i].workload = 0;
+            } else {
+                settledReporters[i].workload = workload.totalWorkload - workload.settledWorkload;
             }
 
-            tmpSettledReporters[count].node = reporters.at(i);
-            tmpSettledReporters[count].workload = workload.totalWorkload - workload.settledWorkload;
-            count++;
-        }
-
-        settledReporters = new NodeSettleWorkload[](count);
-        for (uint256 i = 0; i < count; i++) {
-            settledReporters[i] = tmpSettledReporters[i];
+            settledReporters[i].node = reporters.at(i);
+            
         }
 
         lastSettlementTime = block.timestamp;

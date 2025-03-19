@@ -65,7 +65,7 @@ describe("AIWorkload", function () {
     await nodesRegistry.deployed();
 
     const AIModelUploadFactory = await ethers.getContractFactory("AIModels");
-    aiModelUpload = await AIModelUploadFactory.deploy(nodesGovernance.address, assetManagement.address);
+    aiModelUpload = await AIModelUploadFactory.deploy(nodesRegistry.address, assetManagement.address);
     await aiModelUpload.deployed();
 
     const modelName = "TestModel";

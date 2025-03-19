@@ -1,8 +1,9 @@
 const { deployAndCloneContract } = require("../tests/utils")
 async function main() {
     [owner] = await ethers.getSigners();
+
     const UNISWAP_ROUTER = "0x626459cF9438259ed0812D71650568306486CB00";
-    const AI_MODELS = "0xdB32354C6a32ff61AEaBa581fCF90D4eD696bA8e";
+    const AI_MODELS = "0x13c9447432C6E06503F446d593Cc50aC5C0195A0";
     const BUY_TAX = 1; //%, internal swap tax
     const SELL_TAX = 1; //%, internal swap tax
     const MATURITY_DURATION = 315360000;// 10 years
@@ -11,13 +12,12 @@ async function main() {
     //address taxVault_ = //
 
     // token
-    const ERC20Sample = await ethers.getContractFactory("ERC20Sample");
-    const erc20Sample = await ERC20Sample.deploy("Asset Token", "ASSET");
-    await erc20Sample.deployed();
-    console.log("ERC20Sample is :", erc20Sample.address)
-    console.log("Transaction hash :", erc20Sample.deployTransaction.hash)
-
-    assetAddress = erc20Sample.address
+    // const ERC20Sample = await ethers.getContractFactory("ERC20Sample");
+    // const erc20Sample = await ERC20Sample.deploy("Asset Token", "ASSET");
+    // await erc20Sample.deployed();
+    // console.log("ERC20Sample is :", erc20Sample.address)
+    // console.log("Transaction hash :", erc20Sample.deployTransaction.hash)
+    assetAddress = "0x7e5eF930DA3b4F777dA4fAfb958047A5CaAe5D8b"
 
     // internal swap
     // internal factory
@@ -105,7 +105,7 @@ async function main() {
       imoEntry.address /*address feeTo_*/, 
       500 /** fee 10 **12 */, 
       1000000000 /* uint256 initialSupply_ */, 
-      30000 /*uint256 assetRate_, 100 top -> 10^12 liquid K*/, 
+      30000 /*uint256 assetRate_, 100 top -> 10^12 liquid K*/,
       50 /* %,uint256 maxTx_ */, 
       modelFactory.address, 
       ethers.utils.parseEther("1000000"),// gradThreshold

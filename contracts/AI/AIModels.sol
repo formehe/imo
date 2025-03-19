@@ -2,9 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "./NodesRegistry.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract AIModels is AccessControl{
+contract AIModels {
     NodesRegistry public registry;
     mapping(string => uint256) public modelIds;
     mapping(uint256 => UploadModel) public uploadModels;
@@ -25,7 +24,6 @@ contract AIModels is AccessControl{
         require(_stakeToken != address(0), "Invalid stake token");
         registry = NodesRegistry(_registry);
         stakeToken = IStake(_stakeToken);
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     function recordModelUpload(
@@ -153,23 +151,5 @@ contract AIModels is AccessControl{
         string memory modelVersion
     ) internal pure returns(string memory) {
         return string(abi.encodePacked(modelName, "/", modelVersion));
-    }
-
-    function encodeModelInfo(
-        string calldata modelName,
-        string calldata modelVersion,
-        string calldata modelExtendInfo,
-        uint256 price
-    ) public pure returns(bytes memory) {
-        return abi.encode(modelName, modelVersion, modelExtendInfo, price);
-    }
-
-    function decodeModelInfo(bytes memory modelInfo) public pure returns(string memory modelName,
-        string memory modelVersion, string memory modelExtendInfo, uint256 price) {
-            (modelName, modelVersion, modelExtendInfo, price) = abi.decode(modelInfo, (string, string, string, uint256));
-    }
-
-    function renounceRole(bytes32 /*role*/, address /*account*/) public pure override {
-        require(false, "not support");
     }
 }

@@ -47,7 +47,7 @@ contract Bank is AccessControl {
 
     event TOPWithdrawn(address indexed to, uint256 amount);
 
-        // Update USDT to TOP conversion rate
+    // Update USDT to TOP conversion rate
     function updateRate(uint256 _newRate) external onlyRole(IMO_ROLE) {
         require(_newRate > 0, "Rate must be greater than 0");
         uint256 oldRate = usdtToTopRate;

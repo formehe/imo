@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./ShareDataType.sol";
 import "./NodesRegistry.sol";
 import "./AIModels.sol";
+import "../AIPay/Settlement.sol";
+import "hardhat/console.sol";
 
 contract AIWorkload is ReentrancyGuard{
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -45,9 +47,12 @@ contract AIWorkload is ReentrancyGuard{
     uint256 public lastSettlementTime;
     IStake  public stakeToken;
 
+    //AIPay
+    Settlement public settlement;
+
     event WorkloadReported(uint256 indexed sessionId, address indexed reporter, address worker, uint256 epochId, uint256 workload, uint256 modelId);
 
-    constructor(address _nodeRegistry, address _modelRegistry, address _stakeToken) {
+    constructor(address _nodeRegistry, address _modelRegistry, address _stakeToken, address _settlement) {
         require(_nodeRegistry != address(0), "Invalid node registry");
         require(_modelRegistry != address(0), "Invalid model registry");
         require(_stakeToken != address(0), "Invalid stake token");
@@ -55,6 +60,9 @@ contract AIWorkload is ReentrancyGuard{
         modelRegistry = AIModels(_modelRegistry);
         lastSettlementTime = block.timestamp;
         stakeToken = IStake(_stakeToken);
+
+        //AIPay
+        settlement = Settlement(_settlement);
     }
 
     function _isValidSignature(
@@ -72,6 +80,7 @@ contract AIWorkload is ReentrancyGuard{
             bool duplicate = false;
             bytes memory signatureBytes = abi.encodePacked(signatures[i].r, signatures[i].s, signatures[i].v);
             (address _address,) = ECDSA.tryRecover(ECDSA.toEthSignedMessageHash(content), signatureBytes);
+            console.log("_address:",_address);
             if (!nodeRegistry.get(_address).active) {
                 continue;
             }
@@ -88,10 +97,12 @@ contract AIWorkload is ReentrancyGuard{
             }
 
             if (_address == worker) {
+
                 containsWorker = true;
             }
 
             if (_address == reporter) {
+
                 containsReporter = true;
             }
 
@@ -101,6 +112,11 @@ contract AIWorkload is ReentrancyGuard{
 
         if (votes < ((signatures.length + 1) / 2)
             || !containsWorker || !containsReporter) {
+
+            console.log("worker:",worker);
+            console.log("reporter:",reporter);
+            console.log("containsWorker: ",containsWorker);
+            console.log("containsReporter: ",containsReporter);
             return false;
         }
 
@@ -115,15 +131,18 @@ contract AIWorkload is ReentrancyGuard{
         uint256 sessionId,
         uint256 epochId,
         Signature[] calldata signatures
+
     ) nonReentrant external {
         require(worker != address(0), "Invalid owner address");
         require(workload > 0, "Workload must be greater than zero");
         require(signatures.length >= 3, "Length of signatures must more than 3");
         require(user != address(0), "Invalid user");
-
+        console.log("==== reportWorkload epochId is 2");
         (uint256 tmpModelId, , , , , ,) = modelRegistry.uploadModels(modelId);
+        console.log("tmpModelId:",tmpModelId);
         require(tmpModelId == modelId, "Model not exist");
 
+        console.log("==== reportWorkload epochId is 3");
         require(_isValidSignature(worker, msg.sender, abi.encode(worker, user, workload, modelId, sessionId, epochId), signatures), "Invalid signature");
 
         Session storage session = sessions[sessionId];
@@ -153,6 +172,20 @@ contract AIWorkload is ReentrancyGuard{
 
         session.lastEpochId = epochId;
         emit WorkloadReported(sessionId, msg.sender, worker, epochId, workload, modelId);
+
+        //AIPay
+        console.log("==== AIPay epochId is: %s ", epochId);
+        address[] memory payworkers = new address[](1);
+        payworkers[0] = worker;
+
+        settlement.deductWorkload(
+            workload,
+            user,
+            payworkers,
+            modelId,
+            sessionId,
+            epochId
+        );
     }
 
     function getNodeWorkload(uint256 sessionId, uint256 epochId) external view returns (Workload memory) {
@@ -182,10 +215,10 @@ contract AIWorkload is ReentrancyGuard{
     }
 
     function settleRewards()
-        external 
+        external
         returns (
-            NodeSettleWorkload[] memory settledWorkers, 
-            ModelSettleWorkload[] memory settledModels, 
+            NodeSettleWorkload[] memory settledWorkers,
+            ModelSettleWorkload[] memory settledModels,
             NodeSettleWorkload[] memory settledReporters
         )
     {

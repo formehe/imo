@@ -3,17 +3,18 @@ pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "./bank.sol";
+import "./Bank.sol";
+import "hardhat/console.sol";
 
 contract Deposit is AccessControl {
-    bytes32 public constant IMO_ROLE = keccak256("IMO_ROLE");
+    bytes32 public constant IMO_ROLE = keccak256("OPERATOR_ROLE");
 
     IERC20 public usdt;
     address public bankAddress;
     // uint256 public usdtToTopRate; // How many TOP tokens per 1 USDT
 
     // Events
-    event DepositMade(address indexed user, uint256 usdtAmount, uint256 rate);
+    event DepositMade(address indexed user, uint256 usdtAmount, uint256 rate, uint256 currentBalance);
 
     event BankAddressUpdated(address oldBank, address newBank);
 
@@ -37,11 +38,13 @@ contract Deposit is AccessControl {
 
         // Update the user's balance after deposit
         _updateUserBalanceOnDeposit(msg.sender, _amount);
+
+
         // Get usdtToTopRate from bank contract
         Bank bank = Bank(bankAddress);
         uint256 bankRate = bank.usdtToTopRate();
         require(bankRate > 0, "Invalid bank rate");
-        emit DepositMade(msg.sender, _amount, bankRate);
+        emit DepositMade(msg.sender, _amount, bankRate, userBalances[msg.sender].currentBalance);
     }
 
 
@@ -68,13 +71,14 @@ contract Deposit is AccessControl {
     mapping(address => UserBalance) public userBalances;
 
     // Event for balance updates
-    event UserBalanceUpdated(address indexed user, uint256 newBalance);
+    //event UserBalanceUpdated(address indexed user, uint256 newBalance);
+    event UserBalanceUpdated(address indexed user, uint256 newBalance, bool directory, uint256 currentBalance);
 
     // Update user's current balance (only IMO role)
     function updateUserBalance(address _user, uint256 _newBalance) external onlyRole(IMO_ROLE) {
         require(_user != address(0), "Invalid user address");
         userBalances[_user].currentBalance = _newBalance;
-        emit UserBalanceUpdated(_user, _newBalance);
+        emit UserBalanceUpdated(_user, _newBalance,false,userBalances[_user].currentBalance );
     }
 
     // Get user's balance info
@@ -85,7 +89,42 @@ contract Deposit is AccessControl {
 
     // Internal function to update user balance on deposit
     function _updateUserBalanceOnDeposit(address _user, uint256 _amount) internal {
+
         userBalances[_user].totalDeposited += _amount;
         userBalances[_user].currentBalance += _amount;
+        //add usdt for user
+        emit UserBalanceUpdated(_user, _amount,true, userBalances[_user].currentBalance);
     }
+
+    // ============================ worker top amount update ============================
+    struct WorkerTopBalance {
+        uint256 totalBalance; // Total USDT amount ever deposited
+        uint256 currentBalance; // Current remaining USDT balance
+    }
+
+    // Mapping to track user balances
+    mapping(address => WorkerTopBalance) public workerBalances;
+
+    event WorkerTopBalanceUpdated(address indexed user, uint256 newBalance,bool directory, uint256 currentBalance);
+
+    // Update user's current balance (only IMO role)
+    function updateWorkerBalance(address _user, uint256 _addTop, bool direct ) external onlyRole(IMO_ROLE) {
+        require(_user != address(0), "Invalid user address");
+        require(_addTop > 0, "should positive");
+
+        if (direct) {
+            //workerBalances[_user].totalBalance += _addTop;
+            workerBalances[_user].currentBalance += _addTop;
+        } else {
+
+            require(workerBalances[_user].currentBalance >= _addTop, "Insufficient worker current balance");
+            workerBalances[_user].currentBalance -= _addTop;
+        }
+
+        emit WorkerTopBalanceUpdated(_user, _addTop,direct,workerBalances[_user].currentBalance );
+
+    }
+
+
+
 }

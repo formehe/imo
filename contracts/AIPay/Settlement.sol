@@ -2,12 +2,16 @@
 pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "./deposit.sol";
+import "./Deposit.sol";
+import "./Bank.sol";
+import "hardhat/console.sol";
+
 
 contract Settlement is AccessControl {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     Deposit public depositContract;
+    Bank public bankContract;
 
     // Mapping to store user balances
     mapping(address => uint256) public userBalances;
@@ -20,11 +24,12 @@ contract Settlement is AccessControl {
     //========================= tmp setting =========================
 
     // Events
-    event BalanceUpdated(address indexed user, uint256 previousBalance, uint256 newBalance);
+    //event BalanceUpdated(address indexed user, uint256 previousBalance, uint256 newBalance);
     event DepositContractUpdated(address oldContract, address newContract);
 
-    constructor(address _depositContractAddress) {
+    constructor(address _depositContractAddress, address _bankContractAddress) {
         depositContract = Deposit(_depositContractAddress);
+        bankContract = Bank(_bankContractAddress);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(OPERATOR_ROLE, msg.sender);
     }
@@ -54,13 +59,13 @@ contract Settlement is AccessControl {
          * @dev Updates a user's balance in the Settlement contract by fetching the updated balance from the deposit contract
          * @param user The address of the user
         */
-    function refreshUserBalance(address user, uint256 newBalance) external onlyRole(OPERATOR_ROLE) {
-        (, uint256 previousBalance) = depositContract.getUserBalance(user);
+    //function refreshUserBalance(address user, uint256 newBalance) external onlyRole(OPERATOR_ROLE) {
+    //    (, uint256 previousBalance) = depositContract.getUserBalance(user);
 
-        //todo need to add some check？
-        depositContract.updateUserBalance(user,newBalance);
-        emit BalanceUpdated(user, previousBalance, newBalance);
-    }
+    //    //todo need to add some check？
+    //    depositContract.updateUserBalance(user,newBalance);
+    //    emit BalanceUpdated(user, previousBalance, newBalance);
+    //}
 
     //todo user + miner 地址
     //
@@ -82,18 +87,33 @@ contract Settlement is AccessControl {
         uint256 epochId
     ) external onlyRole(OPERATOR_ROLE) {
 
+        console.log("updateUserBalance is 2");
         //换算关系
-
         uint256 needReserveU = UperTokens * workload ;
+
+        console.log("needReserveU: %s", needReserveU);
         // current user balance
         (, uint256 previousBalance) = depositContract.getUserBalance(user);
+
+        console.log("previousBalance: %s", previousBalance);
 
         require(previousBalance >= needReserveU, "not enought for paying");
 
         depositContract.updateUserBalance(user,previousBalance - needReserveU);
 
-        emit BalanceUpdated(user, previousBalance, userBalances[user]);
+        console.log("updateUserBalance is: %s ", needReserveU);
+
+        //emit BalanceUpdated(user, previousBalance, userBalances[user]);
         emit WorkloadDeducted(workload, user, worker, modelId, sessionId, epochId);
+
+        // update the top
+
+
+
+        uint256 topamount = needReserveU * bankContract.usdtToTopRate();
+        for (uint256 i = 0; i < worker.length; i++) {
+            depositContract.updateWorkerBalance(worker[i],topamount,true);
+        }
     }
 
     event WorkloadDeducted(

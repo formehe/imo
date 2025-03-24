@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, UniswapV2Deployer } = require("hardhat");
 const {deployAndCloneContract} = require("./utils")
 const { BigNumber } = require('ethers')
 
@@ -15,6 +15,9 @@ describe("ModelFactory Contract", function () {
 
   beforeEach(async function () {
     [owner, addr1, addr2] = await ethers.getSigners();
+
+    const { factory, router, weth9 } = await UniswapV2Deployer.deploy(owner);
+    UNISWAP_ROUTER = router.address;
 
     const Token = await ethers.getContractFactory("ERC20Sample");
     assetToken = await Token.deploy("Asset Token", "AST");
@@ -51,7 +54,7 @@ describe("ModelFactory Contract", function () {
     );
 
     await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), addr1.address)
-    await modelFactory.setUniswapRouter("0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9")
+    await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
     await modelFactory.setTokenTaxParams(1/*万分之,uint256 projectBuyTaxBasisPoints*/, 
       1/*万分之,uint256 projectSellTaxBasisPoints*/, 
       1/*万分之uint256 taxSwapThresholdBasisPoints*/)

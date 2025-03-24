@@ -1,10 +1,11 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { AddressZero } = require("ethers").constants
+const toWei = (val) => ethers.utils.parseEther("" + val);
 
 describe("AIWorkload", function () {
   let AIWorkload, aiWorkload;
-  let NodesRegistry, nodesRegistry;
+  let usdtToken, nodesRegistry, DepositCon;
   let owner, reporter1, reporter2;
   const ROUND_DURATION_TIME = 3600;  // 1 hour
 
@@ -56,9 +57,37 @@ describe("AIWorkload", function () {
       }
     ];
 
+    const ERC20Factory = await ethers.getContractFactory("ERC20Sample");
+    usdtToken = await ERC20Factory.connect(owner).deploy("USDTToken", "USDT");
+    await usdtToken.deployed();
+
+    // Transfer USDT from owner to user1, user2, user3
+    await usdtToken.connect(owner).transfer(addr1.address, toWei(1000));
+    await usdtToken.connect(owner).transfer(addr2.address, toWei(1000));
+    await usdtToken.connect(owner).transfer(addr3.address, toWei(1000));
+
     const AssetManagement = await ethers.getContractFactory("AssetManagement");
     const assetManagement = await AssetManagement.deploy();
     await assetManagement.deployed();
+
+    const BankFactory = await ethers.getContractFactory("Bank");
+    bank = await BankFactory.deploy(usdtToken.address, usdtToken.address);
+    await bank.deployed();
+
+    await bank.updateRate(toWei("1"));
+
+    // deposit
+    const DepositFactory = await ethers.getContractFactory("Deposit");
+    DepositCon = await DepositFactory.deploy(usdtToken.address, bank.address);
+    await DepositCon.deployed();
+
+    //settlement
+    const SettlementFactory = await ethers.getContractFactory("Settlement");
+    SettlementCon = await SettlementFactory.deploy(
+      DepositCon.address,
+      bank.address
+    );
+    await SettlementCon.deployed();
 
     const NodesRegistry = await ethers.getContractFactory("NodesGovernance");
     nodesRegistry = await NodesRegistry.deploy();
@@ -75,15 +104,18 @@ describe("AIWorkload", function () {
     await aiModelUpload.recordModelUpload(modelName, modelVersion, modelInfo, 1);
 
     AIWorkload = await ethers.getContractFactory("AIWorkload");
-    aiWorkload = await AIWorkload.deploy(nodesRegistry.address, aiModelUpload.address, assetManagement.address);
+    aiWorkload = await AIWorkload.deploy(nodesRegistry.address, aiModelUpload.address, assetManagement.address, SettlementCon.address);
     await aiWorkload.deployed();
 
-    await expect(AIWorkload.deploy(AddressZero, AddressZero, AddressZero)).to.be.revertedWith("Invalid node registry")
+    await expect(AIWorkload.deploy(AddressZero, AddressZero, AddressZero, AddressZero)).to.be.revertedWith("Invalid node registry")
 
     const ERC20sample = await ethers.getContractFactory("ERC20Sample");
     const erc20 = await ERC20sample.deploy("Asset Token", "ASSET");
     await erc20.deployed();
     await nodesRegistry.nodesGovernance_initialize(nodeInfos, addr1.address, ROUND_DURATION_TIME, assetManagement.address)
+
+    await SettlementCon.grantRole(await SettlementCon.OPERATOR_ROLE(), aiWorkload.address);
+    await DepositCon.grantRole(await DepositCon.IMO_ROLE(), SettlementCon.address);
   });
 
   describe("Initialization", function () {
@@ -126,6 +158,10 @@ describe("AIWorkload", function () {
         { r: signature3.slice(0, 66), s: "0x" + signature3.slice(66, 130), v: parseInt(signature3.slice(130, 132), 16)},
       ];
 
+      //usdt approve contract to spend
+      await usdtToken.connect(addr3).approve(DepositCon.address, toWei("200"));
+      await DepositCon.connect(addr3).deposit(toWei("200"));
+
       const tx = await aiWorkload.connect(addr1).reportWorkload(addr3.address, addr3.address, workload, 1, 1, 1, signatures);
 
       const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
@@ -150,6 +186,9 @@ describe("AIWorkload", function () {
         { r: signature2.slice(0, 66), s: "0x" + signature2.slice(66, 130), v: parseInt(signature2.slice(130, 132), 16) },
         { r: signature3.slice(0, 66), s: "0x" + signature3.slice(66, 130), v: parseInt(signature3.slice(130, 132), 16) },
       ];
+
+      await usdtToken.connect(addr3).approve(DepositCon.address, toWei("200"));
+      await DepositCon.connect(addr3).deposit(toWei("200"));
       await aiWorkload.connect(addr1).reportWorkload(addr3.address, addr3.address, workload, 1, 1, epochId, signatures);
 
       workload = 200;
@@ -164,7 +203,9 @@ describe("AIWorkload", function () {
         { r: signature2.slice(0, 66), s: "0x" + signature2.slice(66, 130), v: parseInt(signature2.slice(130, 132), 16) },
         { r: signature3.slice(0, 66), s: "0x" + signature3.slice(66, 130), v: parseInt(signature3.slice(130, 132), 16) },
       ];
-  
+      
+      await usdtToken.connect(addr3).approve(DepositCon.address, toWei("200"));
+      await DepositCon.connect(addr3).deposit(toWei("200"));
       await expect(
         aiWorkload.connect(addr1).reportWorkload(addr3.address, addr3.address, workload, 1, 1, epochId, signatures)
       ).to.be.revertedWith("Epoch out of order");
@@ -183,6 +224,9 @@ describe("AIWorkload", function () {
         { r: signature2.slice(0, 66), s: "0x" + signature2.slice(66, 130), v: parseInt(signature2.slice(130, 132), 16) },
         { r: signature3.slice(0, 66), s: "0x" + signature3.slice(66, 130), v: parseInt(signature3.slice(130, 132), 16) },
       ];
+
+      await usdtToken.connect(addr3).approve(DepositCon.address, toWei("200"));
+      await DepositCon.connect(addr3).deposit(toWei("200"));
 
       await expect(
         aiWorkload.connect(reporter1).reportWorkload(owner.address, addr3.address, workload, 1, 1, 1, signatures)
@@ -215,6 +259,9 @@ describe("AIWorkload", function () {
         { r: signature2.slice(0, 66), s: "0x" + signature2.slice(66, 130), v: parseInt(signature2.slice(130, 132), 16)},
         { r: signature1.slice(0, 66), s: "0x" + signature1.slice(66, 130), v: parseInt(signature1.slice(130, 132), 16)},
       ];
+
+      await usdtToken.connect(addr3).approve(DepositCon.address, toWei("200"));
+      await DepositCon.connect(addr3).deposit(toWei("200"));
       
       await expect(aiWorkload.connect(reporter1).reportWorkload(addr1.address, addr3.address, workload, 1, 1, 1, signatures))
         .to.be.revertedWith("Invalid signature")
@@ -237,6 +284,8 @@ describe("AIWorkload", function () {
         { r: signature3.slice(0, 66), s: "0x" + signature3.slice(66, 130), v: parseInt(signature3.slice(130, 132), 16)},
       ];
 
+      await usdtToken.connect(addr3).approve(DepositCon.address, toWei("200"));
+      await DepositCon.connect(addr3).deposit(toWei("200"));
       await aiWorkload.connect(addr1).reportWorkload(addr3.address, addr3.address, 100, 1, 1, 1, signatures);
 
       await ethers.provider.send("evm_increaseTime", [60 * 60 * 24]); // Advance 1 day
@@ -254,6 +303,9 @@ describe("AIWorkload", function () {
         { r: signature2.slice(0, 66), s: "0x" + signature2.slice(66, 130), v: parseInt(signature2.slice(130, 132), 16)},
         { r: signature3.slice(0, 66), s: "0x" + signature3.slice(66, 130), v: parseInt(signature3.slice(130, 132), 16)},
       ];
+
+      await usdtToken.connect(addr3).approve(DepositCon.address, toWei("200"));
+      await DepositCon.connect(addr3).deposit(toWei("200"));
       await aiWorkload.connect(addr1).reportWorkload(addr3.address, addr3.address, 200, 1, 1, 2, signatures);
 
       const recentWorkload = await aiWorkload.getTotalWorkerWorkload(addr3.address);

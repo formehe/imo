@@ -11,6 +11,7 @@ import "./InternalExchange/IInternalPair.sol";
 import "./InternalExchange/InternalRouter.sol";
 import "./InternalExchange/InternalToken.sol";
 import "./ModelExchange/IModelFactory.sol";
+import "./ModelExchange/IModelToken.sol";
 import "../AI/AIModels.sol";
 
 contract IMOEntry is
@@ -74,7 +75,7 @@ contract IMOEntry is
     mapping(string => address) public modelLaunched;
 
     event Launched(address indexed token, address indexed pair, uint tokenLenth);
-    event Graduated(address indexed token, address modelToken);
+    event Graduated(address indexed token, address indexed pair, address modelToken);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -441,8 +442,9 @@ contract IMOEntry is
         );
 
         token_.burnFrom(pairAddress, tokenBalance);
+        address lp = IModelToken(modelToken).liquidityPools()[0];
 
-        emit Graduated(tokenAddress, modelToken);
+        emit Graduated(tokenAddress, lp, modelToken);
     }
 
     function unwrapToken(

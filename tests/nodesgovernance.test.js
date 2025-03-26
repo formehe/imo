@@ -147,7 +147,7 @@ describe("NodesGovernance Contract", function () {
         await ethers.provider.send("evm_increaseTime", [ROUND_DURATION_TIME + 1]);
         await ethers.provider.send("evm_mine");
 
-        await nodesGovernance.connect(addr7).registerNode(addr7.address, "71111111111111111", ["A100", "V100"], [3, 2]);
+        await nodesGovernance.connect(addr7).registerNode(addr7.address, "71111111111111111", ["A100", "V100"], [3, 2], true);
         let node = await nodesGovernance.get(addr7.address);
         expect(node.identifier).to.equal(addr7.address);
         expect(node.wallet).to.equal(addr7.address);

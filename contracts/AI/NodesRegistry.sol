@@ -18,6 +18,7 @@ abstract contract NodesRegistry is Initializable, AccessControl {
         ComputeAvailable[] gpus;
         address wallet;
         uint256 stake;
+        bool    isPublic;
     }
 
     struct ComputeAvailable {
@@ -50,7 +51,7 @@ abstract contract NodesRegistry is Initializable, AccessControl {
         address     _stakeToken
     ) internal onlyInitializing {
         for (uint256 i = 0; i < _nodesInfos.length; i++) {
-            _registerNode(_nodesInfos[i].wallet, _nodesInfos[i].identifier, _nodesInfos[i].aliasIdentifier, _nodesInfos[i].gpuTypes, _nodesInfos[i].gpuNums);
+            _registerNode(_nodesInfos[i].wallet, _nodesInfos[i].identifier, _nodesInfos[i].aliasIdentifier, _nodesInfos[i].gpuTypes, _nodesInfos[i].gpuNums, true);
             _active(_nodesInfos[i].identifier);
         }
 
@@ -65,9 +66,10 @@ abstract contract NodesRegistry is Initializable, AccessControl {
         address            wallet,
         string    calldata aliasIdentifier,
         string[]  calldata gpuTypes,
-        uint256[] calldata gpuNums
+        uint256[] calldata gpuNums,
+        bool               isPublic
     ) public payable {
-        _registerNode(wallet, msg.sender, aliasIdentifier, gpuTypes, gpuNums);
+        _registerNode(wallet, msg.sender, aliasIdentifier, gpuTypes, gpuNums, isPublic);
         _checkRegister(msg.sender);
     }
 
@@ -239,7 +241,8 @@ abstract contract NodesRegistry is Initializable, AccessControl {
         address identifier,
         string  calldata aliasIdentifier,
         string[]  calldata gpuTypes,
-        uint256[] calldata gpuNums
+        uint256[] calldata gpuNums,
+        bool      isPublic
     ) internal {
         require(gpuTypes.length == gpuNums.length && gpuNums.length != 0, "Invalid GPU data");
         require(wallet != address(0) && (identifier != address(0)) 
@@ -255,6 +258,7 @@ abstract contract NodesRegistry is Initializable, AccessControl {
         node.wallet = wallet;
         node.aliasIdentifier = aliasIdentifier;
         node.stake = msg.value;
+        node.isPublic = isPublic;
 
         for (uint256 i = 0; i < gpuTypes.length; i++) {
             node.gpus.push(ComputeAvailable({

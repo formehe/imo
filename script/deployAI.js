@@ -1,6 +1,9 @@
 const toWei = (val) => ethers.utils.parseEther("" + val);
 
 async function main() {
+    [owner] = await ethers.getSigners();
+    console.log(owner.address)
+
     const usdtToken = "0xc9B4e5c5CD83EfA16bC89b49283381aD2c74710D";
     const topToken = "0x7e5eF930DA3b4F777dA4fAfb958047A5CaAe5D8b";
 
@@ -62,6 +65,14 @@ async function main() {
 
     await SettlementCon.grantRole(MINTER_ROLE, aiWorkload.address);
     await DepositCon.grantRole(MINTER_ROLE, SettlementCon.address);
+
+    await nodesRegistry.nodesGovernance_initialize(
+      [],
+      owner.address,
+      3600,
+      assetManagement.address
+    );
+    await nodesRegistry.grantRole(await nodesRegistry.ADMIN_ROLE(), owner.address);
 }
 
 main().catch((error) => {

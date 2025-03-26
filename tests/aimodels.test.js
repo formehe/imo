@@ -156,7 +156,7 @@ describe("AIModels Contract", function () {
         const modelId = await aiModelUpload.nextModelId();
         await aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, 1);
 
-        await nodesGovernance.connect(addr7).registerNode(addr7.address, "71111111111111111", ["A100", "V100"], [3, 2]);
+        await nodesGovernance.connect(addr7).registerNode(addr7.address, "71111111111111111", ["A100", "V100"], [3, 2], true);
         await expect(aiModelUpload.connect(addr7).reportDeployment(modelId)).to.be.revertedWith(
             "Node is not active"
         );

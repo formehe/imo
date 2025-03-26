@@ -3,7 +3,7 @@ async function main() {
     [owner] = await ethers.getSigners();
 
     const UNISWAP_ROUTER = "0x626459cF9438259ed0812D71650568306486CB00";
-    const AI_MODELS = "0x13c9447432C6E06503F446d593Cc50aC5C0195A0";
+    const AI_MODELS = "0x7Bc531Ff53F5ae9cA11F8f0fbBD8A364A3baeE12";
     const BUY_TAX = 1; //%, internal swap tax
     const SELL_TAX = 1; //%, internal swap tax
     const MATURITY_DURATION = 315360000;// 10 years
@@ -102,7 +102,7 @@ async function main() {
     await imoEntry.initialize(
       internalFactory.address, 
       internalRouter.address, 
-      imoEntry.address /*address feeTo_*/, 
+      imoEntry.address /*address feeTo_*/,
       500 /** fee 10 **12 */, 
       1000000000 /* uint256 initialSupply_ */, 
       30000 /*uint256 assetRate_, 100 top -> 10^12 liquid K*/,

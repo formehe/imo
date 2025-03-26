@@ -97,12 +97,11 @@ contract AIWorkload is ReentrancyGuard{
             }
 
             if (_address == worker) {
-
                 containsWorker = true;
             }
 
             if (_address == reporter) {
-
+                require(nodeRegistry.proxyNodes(_address), "Not proxy");
                 containsReporter = true;
             }
 

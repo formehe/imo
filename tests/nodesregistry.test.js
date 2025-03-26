@@ -49,7 +49,7 @@ describe("NodesRegistry", function () {
         const gpuNums = [2, 3];
 
         it("not owner deregister node", async function () {
-            await nodesRegistry.connect(addr3).registerNode(addr3.address, "3111111111111111", gpuTypes, gpuNums)
+            await nodesRegistry.connect(addr3).registerNode(addr3.address, "3111111111111111", gpuTypes, gpuNums, true)
             await expect(nodesRegistry["deregisterNode()"]())
                 .to.be.revertedWith("Identifier not exist");
         });
@@ -59,8 +59,8 @@ describe("NodesRegistry", function () {
         const gpuTypes = ["A100", "V100"];
         const gpuNums = [2, 3];
         it("Should register a new node", async function () {
-            await nodesRegistry.connect(addr3).registerNode(addr3.address,  "3111111111111111", gpuTypes, gpuNums, { value: ethers.utils.parseEther("2")});
-            await expect(nodesRegistry.connect(addr3).registerNode(AddressZero, "3111111111111111", gpuTypes, gpuNums)).to.be.revertedWith("Invalid wallet or identifier");
+            await nodesRegistry.connect(addr3).registerNode(addr3.address,  "3111111111111111", gpuTypes, gpuNums, true, { value: ethers.utils.parseEther("2")});
+            await expect(nodesRegistry.connect(addr3).registerNode(AddressZero, "3111111111111111", gpuTypes, gpuNums, true)).to.be.revertedWith("Invalid wallet or identifier");
             const node = await nodesRegistry.get(addr3.address);
             expect(node.identifier).to.equal(addr3.address);
             expect(node.wallet).to.equal(addr3.address);
@@ -73,32 +73,32 @@ describe("NodesRegistry", function () {
         });
 
         it("Should not register a node with a zero address wallet", async function () {
-            await expect(nodesRegistry.connect(addr1).registerNode(AddressZero, "3111111111111111", gpuTypes, gpuNums))
+            await expect(nodesRegistry.connect(addr1).registerNode(AddressZero, "3111111111111111", gpuTypes, gpuNums, true))
                 .to.be.revertedWith(/Invalid wallet/);
-            await expect(nodesRegistry.connect(addr1).registerNode(addr1.address, "", gpuTypes, gpuNums))
+            await expect(nodesRegistry.connect(addr1).registerNode(addr1.address, "", gpuTypes, gpuNums, true))
                 .to.be.revertedWith(/Invalid wallet/);
         });
 
         it("Should revert when trying to register an existing node with a different wallet", async function () {
             const gpuNums1 = [2];
-            await expect(nodesRegistry.connect(addr3).registerNode(addr3.address, "3111111111111111", gpuTypes, gpuNums1))
+            await expect(nodesRegistry.connect(addr3).registerNode(addr3.address, "3111111111111111", gpuTypes, gpuNums1, true))
                 .to.be.revertedWith("Invalid GPU data");
-            await expect(nodesRegistry.connect(addr1).registerNode(addr2.address, "2111111111111111", gpuTypes, gpuNums))
+            await expect(nodesRegistry.connect(addr1).registerNode(addr2.address, "2111111111111111", gpuTypes, gpuNums, true))
                 .to.be.revertedWith("Identifier exist");
-            await expect(nodesRegistry.connect(addr3).registerNode(addr3.address, "1111111111111111", gpuTypes, gpuNums))
+            await expect(nodesRegistry.connect(addr3).registerNode(addr3.address, "1111111111111111", gpuTypes, gpuNums, true))
                 .to.be.revertedWith("Alias identifier exist");
         });
 
         it("Should activate an existing node if registered again with the same wallet", async function () {
             await nodesRegistry.connect(addr1)["deregisterNode()"]();
-            await nodesRegistry.connect(addr1).registerNode(addr1.address, "1111111111111111", gpuTypes, gpuNums);
+            await nodesRegistry.connect(addr1).registerNode(addr1.address, "1111111111111111", gpuTypes, gpuNums, true);
             const node = await nodesRegistry.get(addr1.address);
             expect(node.active).to.be.true;
         });
 
         it("should correctly count nodes", async function () {
-            await nodesRegistry.connect(addr3).registerNode(addr3.address, "3111111111111111", ["A100"], [2]);
-            await nodesRegistry.connect(addr4).registerNode(addr4.address, "4111111111111111", ["V100"], [3]);
+            await nodesRegistry.connect(addr3).registerNode(addr3.address, "3111111111111111", ["A100"], [2], true);
+            await nodesRegistry.connect(addr4).registerNode(addr4.address, "4111111111111111", ["V100"], [3], true);
             expect(await nodesRegistry.length()).to.equal(4);
         });
     });
@@ -146,7 +146,7 @@ describe("NodesRegistry", function () {
             const gpuTypes = ["A100"];
             const gpuNums = [10];
         
-            await nodesRegistry.connect(identifier).registerNode(wallet, "3111111111111111", gpuTypes, gpuNums);
+            await nodesRegistry.connect(identifier).registerNode(wallet, "3111111111111111", gpuTypes, gpuNums, true);
         
             const allocGpuTypes = ["A100"];
             const allocGpuNums = [5];
@@ -190,7 +190,7 @@ describe("NodesRegistry", function () {
             const gpuTypes = ["A100"];
             const gpuNums = [10];
         
-            await nodesRegistry.connect(identifier).registerNode(wallet, "3111111111111111", gpuTypes, gpuNums);
+            await nodesRegistry.connect(identifier).registerNode(wallet, "3111111111111111", gpuTypes, gpuNums, true);
         
             const allocGpuTypes = ["A100"];
             const allocGpuNums = [15];
@@ -208,7 +208,7 @@ describe("NodesRegistry", function () {
             const gpuTypes = ["A100"];
             const gpuNums = [10];
 
-            await nodesRegistry.connect(identifier).registerNode(wallet, "3111111111111111", gpuTypes, gpuNums);
+            await nodesRegistry.connect(identifier).registerNode(wallet, "3111111111111111", gpuTypes, gpuNums, true);
 
             const allocGpuTypes = ["A100"];
             const allocGpuNums = [5];
@@ -229,7 +229,7 @@ describe("NodesRegistry", function () {
             const gpuTypes = ["A100"];
             const gpuNums = [10];
 
-            await nodesRegistry.connect(identifier).registerNode(wallet, "3111111111111111", gpuTypes, gpuNums);
+            await nodesRegistry.connect(identifier).registerNode(wallet, "3111111111111111", gpuTypes, gpuNums, true);
 
             let freeNodes = [{
                 identifier: AddressZero,

@@ -113,6 +113,7 @@ describe("AIWorkload", function () {
     const erc20 = await ERC20sample.deploy("Asset Token", "ASSET");
     await erc20.deployed();
     await nodesRegistry.nodesGovernance_initialize(nodeInfos, addr1.address, ROUND_DURATION_TIME, assetManagement.address)
+    await nodesRegistry.grantRole(await nodesRegistry.ADMIN_ROLE(), owner.address); 
 
     await SettlementCon.grantRole(await SettlementCon.OPERATOR_ROLE(), aiWorkload.address);
     await DepositCon.grantRole(await DepositCon.IMO_ROLE(), SettlementCon.address);
@@ -145,6 +146,7 @@ describe("AIWorkload", function () {
     });
 
     it("Should record workload and emit WorkloadReported event", async function () {
+      await nodesRegistry.registerProxyNode(addr1.address)
       const workload = 200;
       const content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, addr3.address, workload, 1, 1, 1])
 
@@ -174,6 +176,7 @@ describe("AIWorkload", function () {
     });
 
     it("should fail if epochId is out of order", async function () {
+      await nodesRegistry.registerProxyNode(addr1.address)
       let workload = 200;
       let epochId = 3
       let content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, addr3.address, workload, 1, 1, epochId])
@@ -212,6 +215,7 @@ describe("AIWorkload", function () {
     });
 
     it("Should revert if agreement count does not exceed half", async function () {
+      await nodesRegistry.registerProxyNode(addr1.address)
       const workload = 200;
       const content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [owner.address, addr3.address, workload, 1, 1, 1])
 
@@ -234,6 +238,8 @@ describe("AIWorkload", function () {
     });
 
     it("Should revert duplicate signer", async function () {
+      await nodesRegistry.registerProxyNode(addr1.address)
+      await nodesRegistry.registerProxyNode(addr2.address)
       const workload = 200;
       let content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, addr3.address, workload, 1, 1, 1])
 
@@ -272,6 +278,7 @@ describe("AIWorkload", function () {
 
   describe("getRecentWorkload", function () {
     it("Should calculate recent workload correctly", async function () {
+      await nodesRegistry.registerProxyNode(addr1.address)
       let content = ethers.utils.defaultAbiCoder.encode(["address", "address", "uint256", "uint256", "uint256", "uint256"], [addr3.address, addr3.address, 100, 1, 1, 1])
 
       let signature1 = await addr1.signMessage(ethers.utils.arrayify(content));

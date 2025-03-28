@@ -6,7 +6,7 @@ const { AddressZero } = require("ethers").constants;
 
 describe("Settlement Contract", function () {
   let AIWorkload, aiWorkload;
-  let NodesRegistry, nodesRegistry;
+  let NodesRegistry, nodesRegistry, nodesGovernanceCon;
   let owner, reporter1, reporter2;
   const ROUND_DURATION_TIME = 3600; // 1 hour
   beforeEach(async function () {
@@ -118,7 +118,7 @@ describe("Settlement Contract", function () {
     await assetManagement.deployed();
 
     const nodesGovernance = await ethers.getContractFactory("NodesGovernance");
-    const nodesGovernanceCon = await nodesGovernance.deploy();
+    nodesGovernanceCon = await nodesGovernance.deploy();
     await nodesGovernanceCon.deployed();
 
     await nodesGovernanceCon.nodesGovernance_initialize(
@@ -127,6 +127,7 @@ describe("Settlement Contract", function () {
       ROUND_DURATION_TIME,
       assetManagement.address
     );
+    await nodesGovernanceCon.grantRole(await nodesGovernanceCon.ADMIN_ROLE(), owner.address); 
 
     const AIModelUploadFactory = await ethers.getContractFactory("AIModels");
     aiModelUpload = await AIModelUploadFactory.deploy(
@@ -209,6 +210,8 @@ describe("Settlement Contract", function () {
         v: parseInt(signature3.slice(130, 132), 16),
       },
     ];
+
+    await nodesGovernanceCon.registerProxyNode(addr1.address)
 
     const tx = await aiWorkload.connect(addr1).reportWorkload(
       addr3.address,

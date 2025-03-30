@@ -46,3 +46,14 @@ event WorkerTopBalanceWithdraw(address indexed user, uint256 newBalance, bool di
 bank合约
 event USDTWithdrawn(address indexed to, uint256 amount);
 event TOPWithdrawn(address indexed to, uint256 amount);
+
+```shell
+换算比例没用起来，
+
+扣款是全部，不是单个
+
+
+价格从aimodel price来
+
+扣款条件，边界条件加入，
+```

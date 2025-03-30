@@ -11,8 +11,6 @@ describe("Settlement Contract", function () {
   const ROUND_DURATION_TIME = 3600; // 1 hour
   beforeEach(async function () {
     //=================== deposit contract part =======================================
-    //set multiple signer
-    // [owner, user1, user2, user3] = await ethers.getSigners();
     [
       owner,
       reporter1,
@@ -57,52 +55,52 @@ describe("Settlement Contract", function () {
     // );
     // await SettlementCon.deployed();
 
-    // //=================== workload contract part =======================================
+    //=================== workload contract part =======================================
 
-    // let nodeInfos = [
-    //   {
-    //     identifier: addr1.address,
-    //     aliasIdentifier: "11111111111111111",
-    //     wallet: addr1.address,
-    //     gpuTypes: ["A100", "V100"],
-    //     gpuNums: [2, 3],
-    //   },
-    //   {
-    //     identifier: addr2.address,
-    //     aliasIdentifier: "21111111111111111",
-    //     wallet: addr2.address,
-    //     gpuTypes: ["A100", "V100"],
-    //     gpuNums: [2, 3],
-    //   },
-    //   {
-    //     identifier: addr3.address,
-    //     aliasIdentifier: "31111111111111111",
-    //     wallet: addr3.address,
-    //     gpuTypes: ["A100", "V100"],
-    //     gpuNums: [2, 3],
-    //   },
-    //   {
-    //     identifier: addr4.address,
-    //     aliasIdentifier: "41111111111111111",
-    //     wallet: addr4.address,
-    //     gpuTypes: ["A100", "V100"],
-    //     gpuNums: [2, 3],
-    //   },
-    //   {
-    //     identifier: addr5.address,
-    //     aliasIdentifier: "51111111111111111",
-    //     wallet: addr5.address,
-    //     gpuTypes: ["A100", "V100"],
-    //     gpuNums: [2, 3],
-    //   },
-    //   {
-    //     identifier: addr6.address,
-    //     aliasIdentifier: "61111111111111111",
-    //     wallet: addr6.address,
-    //     gpuTypes: ["A100", "V100"],
-    //     gpuNums: [2, 3],
-    //   },
-    // ];
+    let nodeInfos = [
+      {
+        identifier: addr1.address,
+        aliasIdentifier: "11111111111111111",
+        wallet: addr1.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+      {
+        identifier: addr2.address,
+        aliasIdentifier: "21111111111111111",
+        wallet: addr2.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+      {
+        identifier: addr3.address,
+        aliasIdentifier: "31111111111111111",
+        wallet: addr3.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+      {
+        identifier: addr4.address,
+        aliasIdentifier: "41111111111111111",
+        wallet: addr4.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+      {
+        identifier: addr5.address,
+        aliasIdentifier: "51111111111111111",
+        wallet: addr5.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+      {
+        identifier: addr6.address,
+        aliasIdentifier: "61111111111111111",
+        wallet: addr6.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+    ];
 
     // const AssetManagement = await ethers.getContractFactory("AssetManagement");
     // const assetManagement = await AssetManagement.deploy();
@@ -112,12 +110,12 @@ describe("Settlement Contract", function () {
     // const nodesGovernanceCon = await nodesGovernance.deploy();
     // await nodesGovernanceCon.deployed();
 
-    // await nodesGovernanceCon.nodesGovernance_initialize(
-    //   nodeInfos,
-    //   addr1.address,
-    //   ROUND_DURATION_TIME,
-    //   assetManagement.address
-    // );
+    await nodesGovernanceCon.nodesGovernance_initialize(
+      nodeInfos,
+      addr1.address,
+      ROUND_DURATION_TIME,
+      assetManagement.address
+    );
 
     // const AIModelUploadFactory = await ethers.getContractFactory("AIModels");
     // aiModelUpload = await AIModelUploadFactory.deploy(
@@ -186,5 +184,67 @@ describe("Settlement Contract", function () {
     const tx = await DepositCon.deposit(toWei("1"), { gasLimit: 500000 });
     const receipt = await tx.wait();
     console.log("Transaction hash:", tx.hash, " receipt:", receipt);
+  });
+
+  it("Should record workload and emit WorkloadReported event", async function () {
+    const nodesGovernance = await ethers.getContractFactory("NodesGovernance");
+    const nodesGovernanceCon = await nodesGovernance.deploy();
+    await nodesGovernanceCon.deployed();
+
+    await nodesGovernanceCon.nodesGovernance_initialize(
+      nodeInfos,
+      addr1.address,
+      ROUND_DURATION_TIME,
+      assetManagement.address
+    );
+
+    //-----------------------------------------------------------------------------
+    //usdt approve contract to spend
+    await usdtToken.connect(addr3).approve(DepositCon.address, toWei("200"));
+    //deposit
+    await DepositCon.connect(addr3).deposit(toWei("200"));
+
+    //check the addr1 by getUserBalance
+    const userBalance = await DepositCon.getUserBalance(addr3.address);
+    console.log("userBalance:", userBalance);
+    const workload = 200;
+    const content = ethers.utils.defaultAbiCoder.encode(
+      ["address", "address", "uint256", "uint256", "uint256", "uint256"],
+      [addr3.address, addr3.address, workload, 1, 1, 1]
+    );
+
+    const signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
+    const signature2 = await addr1.signMessage(ethers.utils.arrayify(content));
+    const signature3 = await addr1.signMessage(ethers.utils.arrayify(content));
+
+    const signatures = [
+      {
+        r: signature1.slice(0, 66),
+        s: "0x" + signature1.slice(66, 130),
+        v: parseInt(signature1.slice(130, 132), 16),
+      },
+      {
+        r: signature2.slice(0, 66),
+        s: "0x" + signature2.slice(66, 130),
+        v: parseInt(signature2.slice(130, 132), 16),
+      },
+      {
+        r: signature3.slice(0, 66),
+        s: "0x" + signature3.slice(66, 130),
+        v: parseInt(signature3.slice(130, 132), 16),
+      },
+    ];
+
+    const tx = await aiWorkload.connect(addr1).reportWorkload(
+      addr3.address,
+      addr3.address, //user need deposit
+      workload,
+      1,
+      1,
+      1,
+      signatures
+    );
+
+    console.log("tx......", tx.hash());
   });
 });

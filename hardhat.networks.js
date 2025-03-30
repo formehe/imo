@@ -45,17 +45,31 @@ const networks = {
 
   topTest2: {
     url: "http://159.135.194.94:28080",
-    blockGasLimit: 200000000,
+    // blockGasLimit: 200000000,
+    gas: 3000000,
     allowUnlimitedContractSize: true,
     chainId: 1023,
     accounts: [
       `0x54639e47984fafe6355316dc381a616c838e6acf846869001868b809b6158f5f`,
-      `0x54639e47984fafe6355316dc381a616c838e6acf846869001868b809b6158f5f`,
-      `0x54639e47984fafe6355316dc381a616c838e6acf846869001868b809b6158f5f`,
-      `0x54639e47984fafe6355316dc381a616c838e6acf846869001868b809b6158f5f`,
-      `0x54639e47984fafe6355316dc381a616c838e6acf846869001868b809b6158f5f`,
-      `0x54639e47984fafe6355316dc381a616c838e6acf846869001868b809b6158f5f`,
+      `0x4edf73c3fb18df03994640f1f0156103accc327bd4d8a8e497e969733e87e151`,
+      `0x73cdcb64d2b8fc34c9778c34219a8a2bf95537c5854d0255f8712b3161901924`,
+      `0x6537318dcecc07ecc3c0b99558f4a7b5d5a50b6c4d7fed8c75112919a473700a`,
     ],
+  },
+
+  hardhat: {
+    forking: {
+      url: "http://159.135.194.94:28080",
+      enabled: true,
+      // 添加回调函数
+      forkingCallback: (forkingData) => {
+        console.log("分叉状态:", forkingData);
+      },
+    },
+    loggingEnabled: true,
+    accounts: {
+      mnemonic: "test test test test test test test test test test test junk",
+    },
   },
 
   localhost: {
@@ -63,9 +77,7 @@ const networks = {
     url: "http://127.0.0.1:8545",
     // url: 'http://192.168.30.32:8545',
     allowUnlimitedContractSize: true,
-    gasPrice: "auto",
-    gas: 30_000_000,
-    blockGasLimit: 300_000_000,
+
     accounts: {
       mnemonic: "test test test test test test test test test test test junk",
     },

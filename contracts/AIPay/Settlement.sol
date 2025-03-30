@@ -4,7 +4,7 @@ pragma solidity ^0.8.2;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./Deposit.sol";
 import "./Bank.sol";
-import "hardhat/console.sol";
+import "../AI/AIModels.sol";
 
 
 contract Settlement is AccessControl {
@@ -12,6 +12,7 @@ contract Settlement is AccessControl {
 
     Deposit public depositContract;
     Bank public bankContract;
+    AIModels public aimodelContract;
 
     // Mapping to store user balances
     mapping(address => uint256) public userBalances;
@@ -27,13 +28,13 @@ contract Settlement is AccessControl {
     //event BalanceUpdated(address indexed user, uint256 previousBalance, uint256 newBalance);
     event DepositContractUpdated(address oldContract, address newContract);
 
-    constructor(address _depositContractAddress, address _bankContractAddress) {
+    constructor(address _depositContractAddress, address _bankContractAddress, address _aimodelAddress) {
         depositContract = Deposit(_depositContractAddress);
         bankContract = Bank(_bankContractAddress);
+        aimodelContract = AIModels(_aimodelAddress);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(OPERATOR_ROLE, msg.sender);
     }
-
 
     /**
      * @dev Updates the deposit contract address
@@ -87,30 +88,28 @@ contract Settlement is AccessControl {
         uint256 epochId
     ) external onlyRole(OPERATOR_ROLE) {
 
-        console.log("updateUserBalance is 2");
         //换算关系
-        uint256 needReserveU = UperTokens * workload ;
+        uint256 needReserveU = _calculatePrice(workload,modelId) ;
 
-        console.log("needReserveU: %s", needReserveU);
         // current user balance
         (, uint256 previousBalance) = depositContract.getUserBalance(user);
 
-        console.log("previousBalance: %s", previousBalance);
-
+        console.log("previousBalance:",previousBalance);
+        console.log("user:",user);
+        console.log("needReserveU:",needReserveU);
         require(previousBalance >= needReserveU, "not enought for paying");
 
         depositContract.updateUserBalance(user,previousBalance - needReserveU);
 
-        console.log("updateUserBalance is: %s ", needReserveU);
 
         //emit BalanceUpdated(user, previousBalance, userBalances[user]);
         emit WorkloadDeducted(workload, user, worker, modelId, sessionId, epochId);
 
         // update the top
 
-
-
         uint256 topamount = needReserveU * bankContract.usdtToTopRate();
+
+        require(topamount != 0, "topamount cannot be zero");
         for (uint256 i = 0; i < worker.length; i++) {
             depositContract.updateWorkerBalance(worker[i],topamount,true);
         }
@@ -124,4 +123,14 @@ contract Settlement is AccessControl {
         uint256 sessionId,
         uint256 epochId
     );
+
+
+    function _calculatePrice(uint256 workload, uint256 modelId) internal view returns (uint256) {
+
+        (, , , address modelAddress, , , uint256 price ) = aimodelContract.uploadModels(modelId);
+        require(modelAddress != address(0), "Model does not exist");
+        require(price != 0, "Model price cannot be zero");
+
+        return price * workload;
+    }
 }

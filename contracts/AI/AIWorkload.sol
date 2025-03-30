@@ -81,10 +81,14 @@ contract AIWorkload is ReentrancyGuard{
             bytes memory signatureBytes = abi.encodePacked(signatures[i].r, signatures[i].s, signatures[i].v);
             (address _address,) = ECDSA.tryRecover(ECDSA.toEthSignedMessageHash(content), signatureBytes);
             console.log("_address:",_address);
+            console.log("worker:",worker);
+            console.log("reporter:",reporter);
+
+            console.log("nodeRegistry...");
             if (!nodeRegistry.get(_address).active) {
                 continue;
             }
-
+            console.log("nodeRegistry...end");
             for (uint256 j = 0; j < votes; j++) {
                 if(signers[j] == _address) {
                     duplicate = true;
@@ -92,15 +96,17 @@ contract AIWorkload is ReentrancyGuard{
                 }
             }
 
+            console.log("duplicate...");
             if (duplicate) {
                 continue;
             }
-
+            console.log("_address == worker");
             if (_address == worker) {
 
                 containsWorker = true;
             }
 
+            console.log("_address == reporter");
             if (_address == reporter) {
 
                 containsReporter = true;
@@ -110,13 +116,11 @@ contract AIWorkload is ReentrancyGuard{
             votes += 1;
         }
 
+        console.log("votes:",votes);
         if (votes < ((signatures.length + 1) / 2)
             || !containsWorker || !containsReporter) {
-
-            console.log("worker:",worker);
-            console.log("reporter:",reporter);
-            console.log("containsWorker: ",containsWorker);
-            console.log("containsReporter: ",containsReporter);
+            console.log("containsWorker:",containsWorker);
+            console.log("containsReporter:",containsReporter);
             return false;
         }
 
@@ -137,12 +141,9 @@ contract AIWorkload is ReentrancyGuard{
         require(workload > 0, "Workload must be greater than zero");
         require(signatures.length >= 3, "Length of signatures must more than 3");
         require(user != address(0), "Invalid user");
-        console.log("==== reportWorkload epochId is 2");
         (uint256 tmpModelId, , , , , ,) = modelRegistry.uploadModels(modelId);
-        console.log("tmpModelId:",tmpModelId);
         require(tmpModelId == modelId, "Model not exist");
 
-        console.log("==== reportWorkload epochId is 3");
         require(_isValidSignature(worker, msg.sender, abi.encode(worker, user, workload, modelId, sessionId, epochId), signatures), "Invalid signature");
 
         Session storage session = sessions[sessionId];
@@ -174,7 +175,6 @@ contract AIWorkload is ReentrancyGuard{
         emit WorkloadReported(sessionId, msg.sender, worker, epochId, workload, modelId);
 
         //AIPay
-        console.log("==== AIPay epochId is: %s ", epochId);
         address[] memory payworkers = new address[](1);
         payworkers[0] = worker;
 
@@ -262,7 +262,7 @@ contract AIWorkload is ReentrancyGuard{
             }
 
             settledReporters[i].node = reporters.at(i);
-            
+
         }
 
         lastSettlementTime = block.timestamp;

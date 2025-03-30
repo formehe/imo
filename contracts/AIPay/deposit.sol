@@ -78,6 +78,9 @@ contract Deposit is AccessControl {
     function updateUserBalance(address _user, uint256 _newBalance) external onlyRole(IMO_ROLE) {
         require(_user != address(0), "Invalid user address");
         userBalances[_user].currentBalance = _newBalance;
+
+        console.log("updateUserBalance current user:",_user);
+        console.log("updateUserBalance current user _newBalance:",_newBalance);
         emit UserBalanceUpdated(_user, _newBalance,false,userBalances[_user].currentBalance );
     }
 
@@ -93,6 +96,10 @@ contract Deposit is AccessControl {
         userBalances[_user].totalDeposited += _amount;
         userBalances[_user].currentBalance += _amount;
         //add usdt for user
+
+        console.log("_updateUserBalanceOnDeposit current user:",_user);
+        console.log("_updateUserBalanceOnDeposit current user _amount:",_amount);
+
         emit UserBalanceUpdated(_user, _amount,true, userBalances[_user].currentBalance);
     }
 

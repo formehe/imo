@@ -2,7 +2,6 @@ const toWei = (val) => ethers.utils.parseEther("" + val);
 
 async function main() {
   // const AIworkloadCon = "0xE77935C5c3D1110e7626C48d086Ec3F224D730c1";
-  // {{REWRITTEN_CODE}}
   const assetManagement = "0x0f87DEcFa025e2c9d3c9da509AAE9a58C9437d8B";
   const nodesRegistry = "0x2661c26E13E2F71125815fDB8a057c45Da8AB2bB";
   const aiModelUpload = "0x13c9447432C6E06503F446d593Cc50aC5C0195A0";
@@ -30,7 +29,8 @@ async function main() {
   const SettlementFactory = await ethers.getContractFactory("Settlement");
   SettlementCon = await SettlementFactory.deploy(
     DepositCon.address,
-    bank.address
+    bank.address,
+    aiModelUpload
   );
   await SettlementCon.deployed();
 
@@ -53,9 +53,25 @@ async function main() {
   console.log("AI Work is :", aiWorkload.address);
   console.log("Transaction hash :", aiWorkload.deployTransaction.hash);
 
-  await SettlementCon.grantRole(MINTER_ROLE, aiWorkload.address);
+  const grantRoleTx = await SettlementCon.grantRole(
+    MINTER_ROLE,
+    aiWorkload.address
+  );
+  const grantRoleReceipt = await grantRoleTx.wait();
+  console.log(
+    "SettlementCon grantRole transaction hash:",
+    grantRoleReceipt.transactionHash
+  );
 
-  await DepositCon.grantRole(MINTER_ROLE, SettlementCon.address);
+  const depositGrantRoleTx = await DepositCon.grantRole(
+    MINTER_ROLE,
+    SettlementCon.address
+  );
+  const depositGrantRoleReceipt = await depositGrantRoleTx.wait();
+  console.log(
+    "DepositCon grantRole transaction hash:",
+    depositGrantRoleReceipt.transactionHash
+  );
 }
 
 main().catch((error) => {

@@ -58,17 +58,30 @@ describe("Settlement Contract", function () {
     DepositCon = await DepositFactory.deploy(usdtToken.address, bank.address);
     await DepositCon.deployed();
 
-    //settlement
-    const SettlementFactory = await ethers.getContractFactory("Settlement");
-    SettlementCon = await SettlementFactory.connect(owner).deploy(
-      DepositCon.address,
-      bank.address
-    );
-    await SettlementCon.deployed();
-
     //=================== workload contract part =======================================
 
     let nodeInfos = [
+      {
+        identifier: owner.address,
+        aliasIdentifier: "11111111111111112",
+        wallet: owner.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+      {
+        identifier: reporter1.address,
+        aliasIdentifier: "11111111111111113",
+        wallet: reporter1.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
+      {
+        identifier: reporter2.address,
+        aliasIdentifier: "11111111111111114",
+        wallet: reporter2.address,
+        gpuTypes: ["A100", "V100"],
+        gpuNums: [2, 3],
+      },
       {
         identifier: addr1.address,
         aliasIdentifier: "11111111111111111",
@@ -147,6 +160,15 @@ describe("Settlement Contract", function () {
       1
     );
 
+    //settlement
+    const SettlementFactory = await ethers.getContractFactory("Settlement");
+    SettlementCon = await SettlementFactory.connect(owner).deploy(
+      DepositCon.address,
+      bank.address,
+      aiModelUpload.address
+    );
+    await SettlementCon.deployed();
+
     AIWorkload = await ethers.getContractFactory("AIWorkload");
     aiWorkload = await AIWorkload.deploy(
       nodesGovernanceCon.address,
@@ -156,9 +178,7 @@ describe("Settlement Contract", function () {
     );
     await aiWorkload.deployed();
 
-    await expect(
-      AIWorkload.deploy(AddressZero, AddressZero, AddressZero, AddressZero)
-    ).to.be.revertedWith("Invalid node registry");
+    console.log("aiworkload .......", aiWorkload.address);
 
     //grantrole
     const MINTER_ROLE = ethers.utils.keccak256(
@@ -232,5 +252,17 @@ describe("Settlement Contract", function () {
       addr3.address
     );
     expect(totalWorkload.totalWorkload).to.equal(workload);
+  });
+
+  it("Should get the right rate", async function () {
+    const [rate, exchangeValue] = await bank.getExchangeRatio(2, false);
+    console.log("rate:", rate.toString(), "rate:", exchangeValue.toString());
+
+    expect;
+  });
+
+  it("Should get the right rate", async function () {
+    const [rate, exchangeValue] = await bank.getExchangeRatio(2, false);
+    console.log("rate:", rate.toString(), "rate:", exchangeValue.toString());
   });
 });

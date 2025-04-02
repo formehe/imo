@@ -34,7 +34,8 @@ contract Bank is AccessControl {
     }
 
     // Update USDT to TOP exchange rate - IMO role only
-    function updateUsdtTopRate(uint256 _topRate, uint256 _usdtRate) external onlyRole(IMO_ROLE) {
+    function updateUsdtTopRate(uint256 topRate, uint256 usdtRate) external onlyRole(IMO_ROLE) {
+
 
         uint8 usdtDecimals = usdtToken.decimals();
         uint8 topDecimals = topToken.decimals();
@@ -44,15 +45,15 @@ contract Bank is AccessControl {
         console.log("sol topDecimals: ",topDecimals);
 
         if (topDecimals >= usdtDecimals) {
-            usdtToTopRate.topRate = _topRate * (10 ** (topDecimals - usdtDecimals));
-            usdtToTopRate.usdtRate = _usdtRate;
+            usdtToTopRate.topRate = topRate * (10 ** (topDecimals - usdtDecimals));
+            usdtToTopRate.usdtRate = usdtRate;
 
             console.log("sol 1 usdtToTopRate.topRate: ",usdtToTopRate.topRate);
             console.log("sol 1 usdtToTopRate.usdtRate: ",usdtToTopRate.usdtRate);
 
         } else if (topDecimals < usdtDecimals) {
-            usdtToTopRate.topRate = _topRate;
-            usdtToTopRate.usdtRate = _usdtRate * (10 ** (usdtDecimals - topDecimals));
+            usdtToTopRate.topRate = topRate;
+            usdtToTopRate.usdtRate = usdtRate * (10 ** (usdtDecimals - topDecimals));
 
             console.log("sol 2 usdtToTopRate.topRate: ",usdtToTopRate.topRate);
             console.log("sol 2 usdtToTopRate.usdtRate: ",usdtToTopRate.usdtRate);

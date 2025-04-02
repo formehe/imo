@@ -196,9 +196,7 @@ describe("Deposit Contract", function () {
       SettlementCon.address
     );
 
-    const updateRateTx = await bank
-      .connect(owner)
-      .updateUsdtTopRate(toWei("1"), toWei("1"));
+    const updateRateTx = await bank.connect(owner).updateUsdtTopRate(1, 1);
     await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
 
     const [toprate, usdtrate] = await bank.usdtToTopRate();

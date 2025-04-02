@@ -273,6 +273,10 @@ describe("Settlement Contract", function () {
     expect(totalWorkload.totalWorkload).to.equal(workload);
   });
 
+  it("Should set the right rate ", async function () {
+    await bank.updateUsdtTopRate(1, 1);
+  });
+
   it("Should set  the right deductWorkload ", async function () {
     const data = await aiModelUpload.uploadModels(1);
     console.log("upload modeal data: ", data.price.toString());

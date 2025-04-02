@@ -73,7 +73,12 @@ async function main() {
     depositGrantRoleReceipt.transactionHash
   );
 
-  const updateRateTx = await bank.updateUsdtTopRate(toWei("1"), toWei("1"));
+  console.log("bank:", bank.signer.address);
+  const ishas = await bank.hasRole(await bank.IMO_ROLE(), bank.signer.address);
+  console.log("ishas:", ishas);
+
+  console.log("bank:", bank.signer.address);
+  await bank.updateUsdtTopRate(1, 1);
   await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
 
   const [toprate, usdtrate] = await bank.usdtToTopRate();

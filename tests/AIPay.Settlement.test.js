@@ -155,6 +155,13 @@ describe("Settlement Contract", function () {
       assetManagement.address
     );
 
+    await nodesGovernanceCon.grantRole(
+      await nodesGovernanceCon.ADMIN_ROLE(),
+      owner.address
+    );
+
+    await nodesGovernanceCon.registerProxyNode(addr1.address);
+
     const AIModelUploadFactory = await ethers.getContractFactory("AIModels");
     aiModelUpload = await AIModelUploadFactory.deploy(
       nodesGovernanceCon.address,

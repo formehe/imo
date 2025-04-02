@@ -45,17 +45,31 @@ describe("Settlement Contract", function () {
     await usdtToken.connect(owner).transfer(addr2.address, toWei(1000));
     await usdtToken.connect(owner).transfer(addr3.address, toWei(1000));
 
+    //usdt sample
+    const ERC20TOPFactory = await ethers.getContractFactory("ERC20Sample");
+    topToken = await ERC20TOPFactory.connect(owner).deploy("TOPToken", "TOP");
+    await topToken.deployed();
+
+    // Transfer USDT from owner to user1, user2, user3
+    await topToken.connect(owner).transfer(addr1.address, toWei(1000));
+    await topToken.connect(owner).transfer(addr2.address, toWei(1000));
+    await topToken.connect(owner).transfer(addr3.address, toWei(1000));
+
     //bank contract
     const BankFactory = await ethers.getContractFactory("Bank");
-    bank = await BankFactory.deploy(usdtToken.address, usdtToken.address);
+    bank = await BankFactory.deploy(topToken.address, usdtToken.address);
     await bank.deployed();
 
-    const updateRateTx = await bank.connect(owner).updateRate(toWei("1"));
-    await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
+    // const updateRateTx = await bank.connect(owner).updateRate(toWei("1"));
+    // await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
 
     // deposit
     const DepositFactory = await ethers.getContractFactory("Deposit");
-    DepositCon = await DepositFactory.deploy(usdtToken.address, bank.address);
+    DepositCon = await DepositFactory.deploy(
+      usdtToken.address,
+      bank.address,
+      topToken.address
+    );
     await DepositCon.deployed();
 
     //=================== workload contract part =======================================
@@ -186,6 +200,14 @@ describe("Settlement Contract", function () {
     await SettlementCon.grantRole(MINTER_ROLE, aiWorkload.address);
 
     await DepositCon.grantRole(MINTER_ROLE, SettlementCon.address);
+
+    const updateRateTx = await bank
+      .connect(owner)
+      .updateUsdtTopRate(toWei("1"), toWei("1"));
+    await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
+
+    const [toprate, usdtrate] = await bank.usdtToTopRate();
+    console.log("++ toprate: ", toprate, " ++usdtrate:", usdtrate);
   });
 
   // it("Should initialize the contract correctly", async function () {
@@ -251,15 +273,33 @@ describe("Settlement Contract", function () {
     expect(totalWorkload.totalWorkload).to.equal(workload);
   });
 
-  it("Should get the right rate", async function () {
-    const [rate, exchangeValue] = await bank.getExchangeRatio(2, false);
-    console.log("rate:", rate.toString(), "rate:", exchangeValue.toString());
-
-    expect;
+  it("Should set the right rate ", async function () {
+    await bank.updateUsdtTopRate(1, 1);
   });
 
-  it("Should get the right rate", async function () {
-    const [rate, exchangeValue] = await bank.getExchangeRatio(2, false);
-    console.log("rate:", rate.toString(), "rate:", exchangeValue.toString());
+  it("Should set  the right deductWorkload ", async function () {
+    const data = await aiModelUpload.uploadModels(1);
+    console.log("upload modeal data: ", data.price.toString());
+
+    const approvetx = await usdtToken
+      .connect(addr1)
+      .approve(DepositCon.address, toWei("10000000000000"));
+
+    await approvetx.wait();
+
+    const deposittx = await DepositCon.connect(addr1).deposit(toWei("100"));
+    await deposittx.wait();
+
+    const tx = await SettlementCon.deductWorkload(
+      100, //workload
+      addr1.address,
+      [addr1.address],
+      1,
+      1,
+      3
+    );
+
+    await tx.wait();
+    console.log("deductWorkload :", tx.hash);
   });
 });

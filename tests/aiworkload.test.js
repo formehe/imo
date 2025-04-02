@@ -77,6 +77,15 @@ describe("AIWorkload", function () {
     await usdtToken.connect(owner).transfer(addr2.address, toWei(1000));
     await usdtToken.connect(owner).transfer(addr3.address, toWei(1000));
 
+    const ERC20TOPFactory = await ethers.getContractFactory("ERC20Sample");
+    topToken = await ERC20TOPFactory.connect(owner).deploy("TOPToken", "TOP");
+    await topToken.deployed();
+
+    // Transfer USDT from owner to user1, user2, user3
+    await topToken.connect(owner).transfer(addr1.address, toWei(1000));
+    await topToken.connect(owner).transfer(addr2.address, toWei(1000));
+    await topToken.connect(owner).transfer(addr3.address, toWei(1000));
+
     const AssetManagement = await ethers.getContractFactory("AssetManagement");
     const assetManagement = await AssetManagement.deploy();
     await assetManagement.deployed();
@@ -85,20 +94,16 @@ describe("AIWorkload", function () {
     bank = await BankFactory.deploy(usdtToken.address, usdtToken.address);
     await bank.deployed();
 
-    await bank.updateRate(toWei("1"));
+    // await bank.updateRate(toWei("1"));
 
     // deposit
     const DepositFactory = await ethers.getContractFactory("Deposit");
-    DepositCon = await DepositFactory.deploy(usdtToken.address, bank.address);
-    await DepositCon.deployed();
-
-    //settlement
-    const SettlementFactory = await ethers.getContractFactory("Settlement");
-    SettlementCon = await SettlementFactory.deploy(
-      DepositCon.address,
-      bank.address
+    DepositCon = await DepositFactory.deploy(
+      usdtToken.address,
+      bank.address,
+      topToken.address
     );
-    await SettlementCon.deployed();
+    await DepositCon.deployed();
 
     const NodesRegistry = await ethers.getContractFactory("NodesGovernance");
     nodesRegistry = await NodesRegistry.deploy();
@@ -110,6 +115,15 @@ describe("AIWorkload", function () {
       assetManagement.address
     );
     await aiModelUpload.deployed();
+
+    //settlement
+    const SettlementFactory = await ethers.getContractFactory("Settlement");
+    SettlementCon = await SettlementFactory.deploy(
+      DepositCon.address,
+      bank.address,
+      aiModelUpload.address
+    );
+    await SettlementCon.deployed();
 
     const modelName = "TestModel";
     const modelVersion = "v1.0";
@@ -157,6 +171,12 @@ describe("AIWorkload", function () {
       await DepositCon.IMO_ROLE(),
       SettlementCon.address
     );
+
+    const updateRateTx = await bank.connect(owner).updateUsdtTopRate(1, 1);
+    await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
+
+    const [toprate, usdtrate] = await bank.usdtToTopRate();
+    console.log("++ toprate: ", toprate, " ++usdtrate:", usdtrate);
   });
 
   describe("Initialization", function () {

@@ -11,16 +11,18 @@ contract Deposit is AccessControl {
 
     IERC20 public usdt;
     address public bankAddress;
+    IERC20 public toptoken;
     // uint256 public usdtToTopRate; // How many TOP tokens per 1 USDT
 
     // Events
-    event DepositMade(address indexed user, uint256 usdtAmount, uint256 rate, uint256 currentBalance);
+    event DepositMade(address indexed user, uint256 usdtAmount, uint256 topRate, uint256 usdtRate, uint256 currentBalance);
 
     event BankAddressUpdated(address oldBank, address newBank);
 
-    constructor(address _usdtAddress, address _bankAddress) {
+    constructor(address _usdtAddress, address _bankAddress, address _toptoken) {
         usdt = IERC20(_usdtAddress);
         bankAddress = _bankAddress;
+        toptoken = IERC20(_toptoken);
         //usdtToTopRate = 1; // 1:1 initial rate
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(IMO_ROLE, msg.sender);
@@ -42,9 +44,9 @@ contract Deposit is AccessControl {
 
         // Get usdtToTopRate from bank contract
         Bank bank = Bank(bankAddress);
-        uint256 bankRate = bank.usdtToTopRate();
-        require(bankRate > 0, "Invalid bank rate");
-        emit DepositMade(msg.sender, _amount, bankRate, userBalances[msg.sender].currentBalance);
+        (uint256 topRate,uint256 usdtRate) = bank.usdtToTopRate();
+        require(topRate > 0 && usdtRate > 0, "Invalid usdtToTopRate rate");
+        emit DepositMade(msg.sender, _amount, topRate,usdtRate , userBalances[msg.sender].currentBalance);
     }
 
 
@@ -115,7 +117,7 @@ contract Deposit is AccessControl {
     event WorkerTopBalanceUpdated(address indexed user, uint256 newBalance,bool directory, uint256 currentBalance);
 
     // Update user's current balance (only IMO role)
-    function updateWorkerBalance(address _user, uint256 _addTop, bool direct ) external onlyRole(IMO_ROLE) {
+    function updateWorkerBalance(address _user, uint256 _addTop, bool direct ) public onlyRole(IMO_ROLE) {
         require(_user != address(0), "Invalid user address");
         require(_addTop > 0, "should positive");
 
@@ -132,6 +134,18 @@ contract Deposit is AccessControl {
 
     }
 
+    // for worker withdrawing
+    function withdrawTOPByWorker() external {
 
+        require(workerBalances[msg.sender].currentBalance > 0, "Worker balance not found for sender");
+        require(toptoken.balanceOf(address(this)) >= workerBalances[msg.sender].currentBalance, "Insufficient TOP balance");
+        toptoken.transfer(msg.sender, workerBalances[msg.sender].currentBalance);
+
+        updateWorkerBalance(msg.sender,workerBalances[msg.sender].currentBalance,false);
+
+        emit WithdrawTOPByWorker(msg.sender, workerBalances[msg.sender].currentBalance);
+    }
+
+    event WithdrawTOPByWorker(address indexed to, uint256 amount);
 
 }

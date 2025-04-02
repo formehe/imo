@@ -12,15 +12,15 @@ async function main() {
   bank = await BankFactory.deploy(usdtToken, topToken);
   await bank.deployed();
 
-  const updateRateTx = await bank.updateRate(toWei("1"));
-  await updateRateTx.wait();
+  // const updateRateTx = await bank.updateRate(toWei("1"));
+  // await updateRateTx.wait();
 
   console.log("bank is :", bank.address);
   console.log("bank deploy Transaction hash :", bank.deployTransaction.hash);
 
   // deposit
   const DepositFactory = await ethers.getContractFactory("Deposit");
-  DepositCon = await DepositFactory.deploy(usdtToken, bank.address);
+  DepositCon = await DepositFactory.deploy(usdtToken, bank.address, topToken);
   await DepositCon.deployed();
   console.log("DepositCon  is :", DepositCon.address);
   console.log("Transaction hash :", DepositCon.deployTransaction.hash);
@@ -71,6 +71,17 @@ async function main() {
   console.log(
     "DepositCon grantRole transaction hash:",
     depositGrantRoleReceipt.transactionHash
+  );
+
+  const updateRateTx = await bank.updateUsdtTopRate(toWei("1"), toWei("1"));
+  await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
+
+  const [toprate, usdtrate] = await bank.usdtToTopRate();
+  console.log(
+    "++ toprate: ",
+    toprate.toString(),
+    " ++usdtrate:",
+    usdtrate.toString()
   );
 }
 

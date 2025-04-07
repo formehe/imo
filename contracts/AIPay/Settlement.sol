@@ -99,19 +99,26 @@ contract Settlement is AccessControl {
         console.log("needReserveU:",needReserveU);
         require(previousBalance >= needReserveU, "not enought for paying");
 
-        depositContract.updateUserBalance(user,previousBalance - needReserveU);
-
-
-        //emit BalanceUpdated(user, previousBalance, userBalances[user]);
-        emit WorkloadDeducted(workload, user, worker, modelId, sessionId, epochId);
 
         // update the top
 
-        uint256 topamount = needReserveU * bankContract.usdtToTopRate();
+        (uint256 topR, uint256 usdtR) = bankContract.usdtToTopRate();
+        uint256 topamount = needReserveU * topR / usdtR;
+
+        console.log(".....topR: ",topR);
+        console.log(".....usdtR: ",usdtR);
 
         require(topamount != 0, "topamount cannot be zero");
+        uint256 topamountperworker = topamount / worker.length;
+
+
+        depositContract.updateUserBalance(user,previousBalance - needReserveU);
+        //emit BalanceUpdated(user, previousBalance, userBalances[user]);
+        emit WorkloadDeducted(workload, user, worker, modelId, sessionId, epochId);
+
+        require(topamountperworker != 0, "topamountperworker cannot be zero");
         for (uint256 i = 0; i < worker.length; i++) {
-            depositContract.updateWorkerBalance(worker[i],topamount,true);
+            depositContract.updateWorkerBalance(worker[i],topamountperworker,true);
         }
     }
 
@@ -131,6 +138,8 @@ contract Settlement is AccessControl {
         require(modelAddress != address(0), "Model does not exist");
         require(price != 0, "Model price cannot be zero");
 
+        console.log("price: ",price);
+        console.log("workload: ",workload);
         return price * workload;
     }
 }

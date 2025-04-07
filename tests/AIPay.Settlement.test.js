@@ -260,8 +260,6 @@ describe("Settlement Contract", function () {
       },
     ];
 
-    await nodesGovernanceCon.registerProxyNode(addr1.address)
-
     const tx = await aiWorkload.connect(addr1).reportWorkload(
       addr3.address,
       addr3.address, //user need deposit

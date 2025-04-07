@@ -5,8 +5,14 @@ async function main() {
     console.log(owner.address)
 
     const usdtToken = "0xc9B4e5c5CD83EfA16bC89b49283381aD2c74710D";
+    // const ERC20Sample = await ethers.getContractFactory("ERC20Sample");
+    // const erc20Sample = await ERC20Sample.deploy("Asset Token", "ASSET");
+    // await erc20Sample.deployed();
+    // console.log("ERC20Sample is :", erc20Sample.address)
+    // console.log("Transaction hash :", erc20Sample.deployTransaction.hash)
     const topToken = "0x7e5eF930DA3b4F777dA4fAfb958047A5CaAe5D8b";
-
+    // const topToken = erc20Sample.address
+    
     const AssetManagement = await ethers.getContractFactory("AssetManagement");
     const assetManagement = await AssetManagement.deploy();
     await assetManagement.deployed();
@@ -45,7 +51,8 @@ async function main() {
     const SettlementFactory = await ethers.getContractFactory("Settlement");
     SettlementCon = await SettlementFactory.deploy(
       DepositCon.address,
-      bank.address
+      bank.address,
+      aiModelUpload.address
     );
     await SettlementCon.deployed();
 

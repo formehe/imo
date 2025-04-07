@@ -165,6 +165,12 @@ contract IMOEntry is
         assetRate = newRate;
     }
 
+    function setAIModels(address aiModels_) public onlyOwner {
+        require(aiModels_ != address(0), "Invalid ai models");
+
+        aiModels = AIModels(aiModels_);
+    }
+
     function getUserTokens(
         address account
     ) public view returns (address[] memory) {
@@ -215,7 +221,7 @@ contract IMOEntry is
         uint256 k = ((K * 10000) / assetRate);
         uint256 liquidity;
         
-        if (IERC20Metadata(assetToken).decimals() >=12) {
+        if (IERC20Metadata(assetToken).decimals() >= 12) {
             liquidity = (((k * (10000 * 10 ** IERC20Metadata(assetToken).decimals())) / supply) * 1 ether) / 10000;
         } else {
             liquidity = (((k * (10000 * 10 ** IERC20Metadata(assetToken).decimals())) * 1 ether / supply)) / 10000;

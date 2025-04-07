@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const { ethers,  UniswapV2Deployer} = require("hardhat");
 const { deployAndCloneContract } = require("./utils")
+const { AddressZero } = require("ethers").constants;
 
 describe("IMOEntry Contract", function () {
   let imoEntry, internalFactory, internalRouter, aiModels, modelFactory;
@@ -202,7 +203,7 @@ describe("IMOEntry Contract", function () {
     expect(tokenData.data.volume).to.not.equal(0);
     // await expect(imoEntry.connect(addr1).buy(ethers.utils.parseEther("1090000"), tokenAddress)).to.emit(imoEntry, "Graduated");
     tx = await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(1090000), tokenAddress);
-    const receipt = await tx.wait(); // 等待交易确认
+    const receipt = await tx.wait(); 
     const logs = receipt.events.find(e => e.address === modelFactory.address);
     
     application = await modelFactory.getApplication(logs.data)
@@ -211,6 +212,9 @@ describe("IMOEntry Contract", function () {
 
     await modelLockToken.connect(addr1).withdraw(amount)
     await imoEntry.unwrapToken(tokenAddress, [admin.address])
+    modelToken = await ethers.getContractAt("ModelToken", application.token)
+    balance = await modelToken.balanceOf(admin.address)
+    await modelToken.connect(admin).burn(10)
     await expect(imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(1090000), tokenAddress)).to.be.revertedWith("Token not trading");
   });
 });

@@ -1,15 +1,52 @@
 const { deployAndProxyContract } = require("../tests/utils")
 
 let   deployedContracts = [
-    {name: "ProxyAdmin", address: "0xcF153C14FD9cf6f275a00b7384ABc8aDc5aeab11"},
-    {name: "InternalFactory", address: "0x9380DE638b84E50C0d53b16a577eac3414F6D905"},
-    {name: "InternalRouter", address: "0x3301Fd23d63CE30cDC3D203839E7A8B67c81a7D0"},
-    {name: "ModelToken", address: "0xe038F6D2453Acc12220d4B638Ea98A4A73f3aFB7"},
-    {name: "ModelLockToken", address: "0x5Cbf049109220556eD961710e163bA4D4e1A0308"},
-    {name: "ModelFactory", address: "0xC9836f34f87Ae61Fee9F8bB2cfe819342D095CB8"},
-    {name: "IMOEntry", address: "0xc1558A8C5690dC7f919A8604d8039D1e9fc16a97"},
-    {name: "TokenVault", address: "0x07a6045A800ca8329883CbbE105a3057439Ca1bA"},
+    {name: "ProxyAdmin", address: "0x358888998028882dF6d81B74224d61DbaA3Ba298"},
+    {name: "InternalFactory", address: "0x1C7D9B2B0e18A164F4E55eD692F00D3B91ff05ef"},
+    {name: "InternalRouter", address: "0xB5D4dd5b6deE28c6b5B0268ad4ac7Cb9f8791090"},
+    {name: "ModelToken", address: "0xf2C6d0db7A5B699d03342ecA9c809689a03ac49e"},
+    {name: "ModelLockToken", address: "0xAE755002307dF04404441d0dF6720b844A302790"},
+    {name: "ModelFactory", address: "0x9C54e18bA9b986216914742a9a0f6e82a57F6AcB"},
+    {name: "IMOEntry", address: "0x73C3F4bE6f3Ba94830D915C99fC1cC5786232fF3"},
+    {name: "TokenVault", address: "0xB7A66569019d6B70169677f465D2c6a543636c6c"},
 ]
+
+async function deployWithRetry(factory, retries = 5, delay = 5000) {
+    let lastError;
+    for (let i = 0; i < retries; i++) {
+        try {
+            console.log(`尝试部署合约 (${i + 1}/${retries})...`);
+            const contract = await factory.deploy(); // 触发部署
+            console.log("交易已提交:", contract.deployTransaction.hash);
+
+            await waitForDeploymentWithRetry(contract); // 等待部署完成
+            console.log("合约已成功部署:", contract.address);
+            return contract;
+        } catch (error) {
+            lastError = error;
+            console.error(`部署失败: ${error.message}, ${i < retries - 1 ? "重试中..." : "已达最大重试次数"}`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    throw lastError;
+}
+
+async function waitForDeploymentWithRetry(contract, retries = 5, delay = 3000) {
+    let lastError;
+    for (let i = 0; i < retries; i++) {
+        try {
+            console.log(`尝试等待合约部署 (${i + 1}/${retries})...`);
+            await contract.deployed();
+            console.log("合约已成功部署:", contract.address);
+            return contract;
+        } catch (error) {
+            lastError = error;
+            console.error(`等待失败: ${error.message}, ${i < retries - 1 ? "重试中..." : "已达最大重试次数"}`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    throw lastError;
+}
 
 function getAddressByName(name) {
     let contract = deployedContracts.find(c => c.name === name);
@@ -20,7 +57,7 @@ async function main() {
     [owner] = await ethers.getSigners();
 
     const UNISWAP_ROUTER = "0x626459cF9438259ed0812D71650568306486CB00";
-    const AI_MODELS = "0x7Bc531Ff53F5ae9cA11F8f0fbBD8A364A3baeE12";
+    const AI_MODELS = "0x30c98C8d9e63BC51967a7F35fD9D441A31656EC1";
     const BUY_TAX = 1; //%, internal swap tax
     const SELL_TAX = 1; //%, internal swap tax
     const MATURITY_DURATION = 315360000;// 10 years
@@ -41,8 +78,7 @@ async function main() {
         contract = getAddressByName("ProxyAdmin")
         if (contract === "0x") {
             const ProxyAdmin = await ethers.getContractFactory("ProxyAdmin");
-            const proxyAdmin = await ProxyAdmin.deploy();
-            await proxyAdmin.deployed();
+            const proxyAdmin = await deployWithRetry(ProxyAdmin)
             console.log("ProxyAdmin is :", proxyAdmin.address)
             return proxyAdmin
         } else {
@@ -56,10 +92,9 @@ async function main() {
     const internalFactory = await (async () => {
         contract = getAddressByName("InternalFactory")
         const InternalFactoryTemplate = await ethers.getContractFactory("InternalFactory");
-        const internalFactoryTemplate = await InternalFactoryTemplate.deploy();
-        await internalFactoryTemplate.deployed();
+        const internalFactoryTemplate = await deployWithRetry(InternalFactoryTemplate)
         console.log("InternalFactoryTemplate is :", internalFactoryTemplate.address)
-        console.log("Transaction hash :", internalFactoryTemplate.deployTransaction.hash)
+        
         if (contract === "0x") {
             const proxyAddress = await deployAndProxyContract(ethers, internalFactoryTemplate.address, proxyAdmin.address)
             const internalFactory = await InternalFactoryTemplate.attach(proxyAddress);
@@ -78,10 +113,9 @@ async function main() {
     const internalRouter = await (async () => {
         contract = getAddressByName("InternalRouter")
         const InternalRouterTemplate = await ethers.getContractFactory("InternalRouter");
-        const internalRouterTemplate = await InternalRouterTemplate.deploy();
-        await internalRouterTemplate.deployed();
+        const internalRouterTemplate = await deployWithRetry(InternalRouterTemplate);
         console.log("InternalRouterTemplate is :", internalRouterTemplate.address)
-        console.log("Transaction hash :", internalRouterTemplate.deployTransaction.hash)
+        
         if (contract === "0x") {
             const proxyAddress = await deployAndProxyContract(ethers, internalRouterTemplate.address, proxyAdmin.address)
             const internalRouter = await InternalRouterTemplate.attach(proxyAddress);
@@ -100,10 +134,9 @@ async function main() {
     const modelToken = await (async () => {
         contract = getAddressByName("ModelToken")
         const ModelTokenTemplate = await ethers.getContractFactory("ModelToken");
-        modelTokenTemplate = await ModelTokenTemplate.deploy();
-        await modelTokenTemplate.deployed();
+        modelTokenTemplate = await deployWithRetry(ModelTokenTemplate)
         console.log("ModelTokenTempalte is :", modelTokenTemplate.address)
-        console.log("Transaction hash :", modelTokenTemplate.deployTransaction.hash)
+        
         if (contract === "0x") {
             const proxyAddress = await deployAndProxyContract(ethers, modelTokenTemplate.address, proxyAdmin.address)
             const modelToken = await ModelTokenTemplate.attach(proxyAddress);
@@ -121,10 +154,9 @@ async function main() {
     const modelLockToken = await (async () => {
         contract = getAddressByName("ModelLockToken")
         const ModelLockTokenTemplate = await ethers.getContractFactory("ModelLockToken");
-        modelLockTokenTemplate = await ModelLockTokenTemplate.deploy();
-        await modelLockTokenTemplate.deployed();
+        modelLockTokenTemplate = await deployWithRetry(ModelLockTokenTemplate)
         console.log("ModelLockTokenTempalte is :", modelLockTokenTemplate.address)
-        console.log("Transaction hash :", modelLockTokenTemplate.deployTransaction.hash)
+        
         if (contract === "0x") {
             const proxyAddress = await deployAndProxyContract(ethers, modelLockTokenTemplate.address, proxyAdmin.address)
             const modelLockToken = await ModelLockTokenTemplate.attach(proxyAddress);
@@ -142,10 +174,9 @@ async function main() {
     const modelFactory = await (async () => {
         contract = getAddressByName("ModelFactory")
         const ModelFactoryTemplate = await ethers.getContractFactory("ModelFactory");
-        modelFactoryTemplate = await ModelFactoryTemplate.deploy();
-        await modelFactoryTemplate.deployed();
+        modelFactoryTemplate = await deployWithRetry(ModelFactoryTemplate);
         console.log("ModelFactoryTemplate is :", modelFactoryTemplate.address)
-        console.log("Transaction hash :", modelFactoryTemplate.deployTransaction.hash)
+        
         if (contract === "0x") {
             const proxyAddress = await deployAndProxyContract(ethers, modelFactoryTemplate.address, proxyAdmin.address)
             const modelFactory = await ModelFactoryTemplate.attach(proxyAddress);
@@ -164,10 +195,9 @@ async function main() {
     const imoEntry = await (async () => {
         contract = getAddressByName("IMOEntry")
         const IMOEntryTemplate = await ethers.getContractFactory("IMOEntry");
-        imoEntryTemplate = await IMOEntryTemplate.deploy();
-        await imoEntryTemplate.deployed();
+        imoEntryTemplate = await deployWithRetry(IMOEntryTemplate);
         console.log("IMOEntryTemplate is :", imoEntryTemplate.address)
-        console.log("Transaction hash :", imoEntryTemplate.deployTransaction.hash)
+        
         if (contract === "0x") {
             const proxyAddress = await deployAndProxyContract(ethers, imoEntryTemplate.address, proxyAdmin.address)
             const imoEntry = await IMOEntryTemplate.attach(proxyAddress);
@@ -185,8 +215,7 @@ async function main() {
     const tokenVault = await (async () => {
         contract = getAddressByName("TokenVault")
         const TokenVaultTemplate = await ethers.getContractFactory("TokenVault");
-        tokenVaultTemplate = await TokenVaultTemplate.deploy();
-        await tokenVaultTemplate.deployed();
+        tokenVaultTemplate = await deployWithRetry(TokenVaultTemplate);
         console.log("TokenVaultTemplate is :", tokenVaultTemplate.address)
         console.log("Transaction hash :", tokenVaultTemplate.deployTransaction.hash)
         if (contract === "0x") {
@@ -206,6 +235,7 @@ async function main() {
     // configure token vault
     contract = getAddressByName("TokenVault")
     if (contract === "0x") {
+        console.log("TokenVault")
         await tokenVault.initialize(assetAddress)
         await tokenVault.grantRole(await tokenVault.WITHDRAW_ROLE(), owner.address)
     }
@@ -213,6 +243,7 @@ async function main() {
     // configure internal factory
     contract = getAddressByName("InternalFactory")
     if (contract === "0x") {
+        console.log("InternalFactory")
         await internalFactory.initialize(tokenVault.address /*address taxVault_*/, BUY_TAX, SELL_TAX)
         await internalFactory.grantRole(await internalFactory.CREATOR_ROLE(), imoEntry.address)
         await internalFactory.grantRole(await internalFactory.ADMIN_ROLE(), owner.address)
@@ -222,6 +253,7 @@ async function main() {
     // configure internal router
     contract = getAddressByName("InternalRouter")
     if (contract === "0x") {
+        console.log("InternalRouter")
         await internalRouter.initialize(internalFactory.address, assetAddress)
         await internalRouter.grantRole(await internalRouter.EXECUTOR_ROLE(), imoEntry.address)
     }
@@ -229,6 +261,7 @@ async function main() {
     // configure model factory
     contract = getAddressByName("ModelFactory")
     if (contract === "0x") {
+        console.log("ModelFactory")
         await modelFactory.initialize(modelToken.address, modelLockToken.address, assetAddress, 1/* next id */)
         await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
         await modelFactory.setTokenAdmin(tokenAdmin)
@@ -240,6 +273,7 @@ async function main() {
     // configure IMOEntry
     contract = getAddressByName("IMOEntry")
     if (contract === "0x") {
+        console.log("IMOEntry")
         await imoEntry.initialize(
             internalFactory.address, 
             internalRouter.address, 

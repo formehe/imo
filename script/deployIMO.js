@@ -1,14 +1,32 @@
 const { deployAndProxyContract } = require("../tests/utils")
 
+// Asset Management is : 0x1582D0d87D3518216b7A780b2e452fdf81BA338F
+// Node registry is : 0xDee66F4500079041Fe2A795d9ADab04aFf9b04e8
+// AI model is : 0xf64CDc1493a9bf3e7D47D853FB621F046e8E10F4
+
+// bank is : 0x4abec927Ea1D4d2d811681D3447e8e4E9a542989
+// Deposit is : 0x74699d1174006A03924413ec280ba3feD44d8689
+// Settlement is : 0x71Ea5Bc359F583fc7aB39dc6e967999fA2146cE8
+// AI Workload is : 0x67b0B9B2194705b9a494dc6ddd5a0E3c5758F8b4
+
+// {name: "ProxyAdmin", address: "0xA7F590c8B2D0435824B15CD41B66173473C71CCE"},
+// {name: "InternalFactory", address: "0xB40fA8Ea39005dB6Aa500654666f0A58A861FA05"},
+// {name: "InternalRouter", address: "0x790e610E51d55ef82EB272102C9bc5833eDFB99c"},
+// {name: "ModelToken", address: "0xaB49c2F12b7B98cEf29d4a3441FFDf0782039c5B"},
+// {name: "ModelLockToken", address: "0x1cFb5fbd5b9f4e9c88db8019E220dc5E59D7835B"},
+// {name: "ModelFactory", address: "0xa8773c3c9d70bF5C5d274A3b1c8Db9238c638Abe"},
+// {name: "IMOEntry", address: "0xd0f82eb271Ab78B76A669eD1288041495249A768"},
+// {name: "TokenVault", address: "0x8258C2C45B4ad9bEa8AD62bf4Cfa470B3B9B2ca7"},
+
 let   deployedContracts = [
-    {name: "ProxyAdmin", address: "0x358888998028882dF6d81B74224d61DbaA3Ba298"},
-    {name: "InternalFactory", address: "0x1C7D9B2B0e18A164F4E55eD692F00D3B91ff05ef"},
-    {name: "InternalRouter", address: "0xB5D4dd5b6deE28c6b5B0268ad4ac7Cb9f8791090"},
-    {name: "ModelToken", address: "0xf2C6d0db7A5B699d03342ecA9c809689a03ac49e"},
-    {name: "ModelLockToken", address: "0xAE755002307dF04404441d0dF6720b844A302790"},
-    {name: "ModelFactory", address: "0x9C54e18bA9b986216914742a9a0f6e82a57F6AcB"},
-    {name: "IMOEntry", address: "0x73C3F4bE6f3Ba94830D915C99fC1cC5786232fF3"},
-    {name: "TokenVault", address: "0xB7A66569019d6B70169677f465D2c6a543636c6c"},
+    {name: "ProxyAdmin", address: "0xA7F590c8B2D0435824B15CD41B66173473C71CCE"},
+    {name: "InternalFactory", address: "0xB40fA8Ea39005dB6Aa500654666f0A58A861FA05"},
+    {name: "InternalRouter", address: "0x790e610E51d55ef82EB272102C9bc5833eDFB99c"},
+    {name: "ModelToken", address: "0xaB49c2F12b7B98cEf29d4a3441FFDf0782039c5B"},
+    {name: "ModelLockToken", address: "0x1cFb5fbd5b9f4e9c88db8019E220dc5E59D7835B"},
+    {name: "ModelFactory", address: "0xa8773c3c9d70bF5C5d274A3b1c8Db9238c638Abe"},
+    {name: "IMOEntry", address: "0xd0f82eb271Ab78B76A669eD1288041495249A768"},
+    {name: "TokenVault", address: "0x8258C2C45B4ad9bEa8AD62bf4Cfa470B3B9B2ca7"},
 ]
 
 async function deployWithRetry(factory, retries = 5, delay = 5000) {
@@ -57,7 +75,7 @@ async function main() {
     [owner] = await ethers.getSigners();
 
     const UNISWAP_ROUTER = "0x626459cF9438259ed0812D71650568306486CB00";
-    const AI_MODELS = "0x30c98C8d9e63BC51967a7F35fD9D441A31656EC1";
+    const AI_MODELS = "0xf64CDc1493a9bf3e7D47D853FB621F046e8E10F4";
     const BUY_TAX = 1; //%, internal swap tax
     const SELL_TAX = 1; //%, internal swap tax
     const MATURITY_DURATION = 315360000;// 10 years

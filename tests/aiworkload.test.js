@@ -176,7 +176,6 @@ describe("AIWorkload", function () {
     await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
 
     const [toprate, usdtrate] = await bank.usdtToTopRate();
-    console.log("++ toprate: ", toprate, " ++usdtrate:", usdtrate);
   });
 
   describe("Initialization", function () {

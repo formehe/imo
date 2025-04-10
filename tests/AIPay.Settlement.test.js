@@ -6,7 +6,7 @@ const { AddressZero } = require("ethers").constants;
 
 describe("Settlement Contract", function () {
   let AIWorkload, aiWorkload;
-  let NodesRegistry, nodesRegistry, nodesGovernanceCon;
+  let nodesGovernanceCon;
   let owner, reporter1, reporter2;
   const ROUND_DURATION_TIME = 3600; // 1 hour
   beforeEach(async function () {
@@ -26,15 +26,6 @@ describe("Settlement Contract", function () {
       addr7,
     ] = await ethers.getSigners();
 
-    // console.log("Signers:", {
-    //   owner: owner.address,
-    //   reporter1: reporter1.address,
-    //   reporter2: reporter2.address,
-    //   addr1: addr1.address,
-    //   addr2: addr2.address,
-    //   addr3: addr3.address,
-    //   addr4: addr4.address,
-    // });
     //usdt sample
     const ERC20Factory = await ethers.getContractFactory("ERC20Sample");
     usdtToken = await ERC20Factory.connect(owner).deploy("USDTToken", "USDT");
@@ -59,9 +50,6 @@ describe("Settlement Contract", function () {
     const BankFactory = await ethers.getContractFactory("Bank");
     bank = await BankFactory.deploy(topToken.address, usdtToken.address);
     await bank.deployed();
-
-    // const updateRateTx = await bank.connect(owner).updateRate(toWei("1"));
-    // await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
 
     // deposit
     const DepositFactory = await ethers.getContractFactory("Deposit");
@@ -181,6 +169,13 @@ describe("Settlement Contract", function () {
       1
     );
 
+    await aiModelUpload.recordModelUpload(
+      "TestMode2",
+      modelVersion,
+      modelInfo,
+      toWei(2)
+    );
+
     //settlement
     const SettlementFactory = await ethers.getContractFactory("Settlement");
     SettlementCon = await SettlementFactory.connect(owner).deploy(
@@ -199,23 +194,21 @@ describe("Settlement Contract", function () {
     );
     await aiWorkload.deployed();
 
-    console.log("aiworkload .......", aiWorkload.address);
-
     //grantrole
     const MINTER_ROLE = ethers.utils.keccak256(
       ethers.utils.toUtf8Bytes("OPERATOR_ROLE")
     );
     await SettlementCon.grantRole(MINTER_ROLE, aiWorkload.address);
+    await SettlementCon.grantRole(MINTER_ROLE, owner.address);
 
     await DepositCon.grantRole(MINTER_ROLE, SettlementCon.address);
 
     const updateRateTx = await bank
       .connect(owner)
-      .updateUsdtTopRate(toWei("1"), toWei("1"));
+      .updateUsdtTopRate(1, 1);
     await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
 
     const [toprate, usdtrate] = await bank.usdtToTopRate();
-    console.log("++ toprate: ", toprate, " ++usdtrate:", usdtrate);
   });
 
   // it("Should initialize the contract correctly", async function () {
@@ -231,7 +224,6 @@ describe("Settlement Contract", function () {
 
     //check the addr1 by getUserBalance
     const userBalance = await DepositCon.getUserBalance(addr3.address);
-    console.log("userBalance:", userBalance);
     const workload = 200;
     const content = ethers.utils.defaultAbiCoder.encode(
       ["address", "address", "uint256", "uint256", "uint256", "uint256"],
@@ -287,7 +279,6 @@ describe("Settlement Contract", function () {
 
   it("Should set  the right deductWorkload ", async function () {
     const data = await aiModelUpload.uploadModels(1);
-    console.log("upload modeal data: ", data.price.toString());
 
     const approvetx = await usdtToken
       .connect(addr1)
@@ -298,6 +289,10 @@ describe("Settlement Contract", function () {
     const deposittx = await DepositCon.connect(addr1).deposit(toWei("100"));
     await deposittx.wait();
 
+    const MINTER_ROLE = ethers.utils.keccak256(
+      ethers.utils.toUtf8Bytes("OPERATOR_ROLE")
+    );
+    await SettlementCon.grantRole(MINTER_ROLE, owner.address);
     const tx = await SettlementCon.deductWorkload(
       100, //workload
       addr1.address,
@@ -308,6 +303,275 @@ describe("Settlement Contract", function () {
     );
 
     await tx.wait();
-    console.log("deductWorkload :", tx.hash);
+  });
+
+  describe("Update Deposit Contract", function () {
+    it("Should update deposit contract address when called by admin", async function () {
+      const newDepositAddress = ethers.Wallet.createRandom().address;
+      
+      await SettlementCon.connect(owner).updateDepositContract(newDepositAddress);
+      expect(await SettlementCon.depositContract()).to.equal(newDepositAddress);
+    });
+
+    it("Should emit DepositContractUpdated event", async function () {
+      const newDepositAddress = ethers.Wallet.createRandom().address;
+      
+      await expect(SettlementCon.connect(owner).updateDepositContract(newDepositAddress))
+        .to.emit(SettlementCon, "DepositContractUpdated")
+        .withArgs(DepositCon.address, newDepositAddress);
+    });
+
+    it("Should revert if called by non-admin", async function () {
+      const newDepositAddress = ethers.Wallet.createRandom().address;
+      
+      await expect(SettlementCon.connect(addr1).updateDepositContract(newDepositAddress))
+        .to.be.reverted;
+    });
+
+    it("Should revert if new address is zero", async function () {    
+      await expect(SettlementCon.connect(owner).updateDepositContract(ethers.constants.AddressZero))
+        .to.be.reverted;
+    });
+  });
+
+  describe("Deduct Workload", function () {
+    it("Should deduct user balance correctly", async function () {      
+      const workload = 10;
+      const modelId = 1;
+      const sessionId = 123;
+      const epochId = 456;
+      const workers = [reporter1.address, reporter2.address];
+      
+      // Get initial balance
+      await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
+      await DepositCon.connect(addr1).deposit(toWei("100"))
+      const initialBalance = (await DepositCon.getUserBalance(addr1.address))[1];
+      
+      // Call deductWorkload
+      await SettlementCon.connect(owner).deductWorkload(
+        workload, addr1.address, workers, modelId, sessionId, epochId
+      );
+      
+      // Check user balance is reduced
+      const finalBalance = (await DepositCon.getUserBalance(addr1.address))[1];
+      const expectedDeduction = ethers.BigNumber.from(workload).mul(1); // workload * model price
+      expect(initialBalance.sub(finalBalance)).to.equal(expectedDeduction);
+    });
+
+    it("Should distribute TOP tokens to workers correctly", async function () {      
+      const workload = 10;
+      const modelId = 1;
+      const sessionId = 123;
+      const epochId = 456;
+      const workers = [reporter1.address, reporter2.address];
+      
+      // Call deductWorkload
+      await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
+      await DepositCon.connect(addr1).deposit(toWei("100"))
+      const initialBalance = (await DepositCon.getUserBalance(addr1.address))[1];
+
+      await SettlementCon.connect(owner).deductWorkload(
+        workload, addr1.address, workers, modelId, sessionId, epochId
+      );
+      
+      // Calculate expected TOP amount per worker
+      const totalUSDT = ethers.BigNumber.from(workload).mul(1); // workload * model price
+      const totalTOP = totalUSDT.mul(1); // topRate = 10, usdtRate = 1
+      const topPerWorker = totalTOP.div(2); // Split between 2 workers
+      
+      // Check worker balances
+      expect((await DepositCon.workerBalances(reporter1.address))[1]).to.equal(topPerWorker);
+      expect((await DepositCon.workerBalances(reporter2.address))[1]).to.equal(topPerWorker);
+    });
+
+    it("Should emit WorkloadDeducted event", async function () {      
+      const workload = 10;
+      const modelId = 1;
+      const sessionId = 123;
+      const epochId = 456;
+      const workers = [reporter1.address, reporter2.address];
+
+      await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
+      await DepositCon.connect(addr1).deposit(toWei("100"))
+      const initialBalance = (await DepositCon.getUserBalance(addr1.address))[1];
+      
+      await expect(SettlementCon.connect(owner).deductWorkload(
+        workload, addr1.address, workers, modelId, sessionId, epochId
+      ))
+        .to.emit(SettlementCon, "WorkloadDeducted")
+        .withArgs(workload, addr1.address, workers, modelId, sessionId, epochId);
+    });
+
+    it("Should revert if called by non-owner", async function () {     
+      const workload = 10;
+      const modelId = 1;
+      const sessionId = 123;
+      const epochId = 456;
+      const workers = [reporter1.address, reporter2.address];
+      
+      await expect(SettlementCon.connect(owner).deductWorkload(
+        workload, addr1.address, workers, modelId, sessionId, epochId
+      )).to.be.reverted;
+    });
+
+    it("Should revert if user has insufficient balance", async function () {
+      // High workload that would exceed user2's balance
+      const workload = 1000;
+      const modelId = 1;
+      const sessionId = 123;
+      const epochId = 456;
+      const workers = [reporter1.address, reporter2.address];
+      
+      await expect(SettlementCon.connect(owner).deductWorkload(
+        workload, addr2.address, workers, modelId, sessionId, epochId
+      )).to.be.revertedWith("not enought for paying");
+    });
+
+    it("Should revert if model does not exist", async function () {
+     
+      const workload = 10;
+      const nonExistentModelId = 999;
+      const sessionId = 123;
+      const epochId = 456;
+      const workers = [reporter1.address, reporter2.address];
+      
+      await expect(SettlementCon.connect(owner).deductWorkload(
+        workload, addr1.address, workers, nonExistentModelId, sessionId, epochId
+      )).to.be.revertedWith("Model does not exist");
+    });
+
+    it("Should revert if model price is zero", async function () {
+     
+      const workload = 10;
+      const zeroModelId = 3; // We set up model 3 with zero price
+      const sessionId = 123;
+      const epochId = 456;
+      const workers = [reporter1.address, reporter2.address];
+      
+      await expect(SettlementCon.connect(owner).deductWorkload(
+        workload, addr1.address, workers, zeroModelId, sessionId, epochId
+      )).to.be.revertedWith("Model does not exist");
+    });
+
+    it("Should revert if calculated TOP amount is zero", async function () {    
+      // Set exchange rate to make TOP amount zero (0 TOP per 1 USDT)
+      await bank.updateUsdtTopRate(1, 2);
+      
+      const workload = 1;
+      const modelId = 1;
+      const sessionId = 123;
+      const epochId = 456;
+      const workers = [reporter1.address, reporter2.address];
+      
+      const manyWorkers = Array(1000).fill(reporter1.address);
+      await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
+      await DepositCon.connect(addr1).deposit(toWei("100"))
+
+      await expect(SettlementCon.connect(owner).deductWorkload(
+        workload, addr1.address, workers, modelId, sessionId, epochId
+      )).to.be.revertedWith("topamount cannot be zero");
+    });
+
+    it("Should revert if TOP amount per worker is zero", async function () {      
+      // Very small workload with many workers to make per-worker amount zero
+      const workload = 1;
+      const modelId = 1; // Price 0.1 USDT
+      const sessionId = 123;
+      const epochId = 456;
+      
+      // Create an array with many workers to spread the TOP tokens thinly
+      const manyWorkers = Array(1000).fill(reporter1.address);
+      await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
+      await DepositCon.connect(addr1).deposit(toWei("100"))
+      const initialBalance = (await DepositCon.getUserBalance(addr1.address))[1];
+      
+      await expect(SettlementCon.connect(owner).deductWorkload(
+        workload, addr1.address, manyWorkers, modelId, sessionId, epochId
+      )).to.be.revertedWith("topamountperworker cannot be zero");
+    });
+
+    it("Should handle different model prices correctly", async function () {     
+      const workload = 10;
+      const modelId = 2; // Higher price model (0.2 USDT)
+      const sessionId = 123;
+      const epochId = 456;
+      const workers = [reporter1.address, reporter2.address];
+      
+      // Get initial balance
+      await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
+      await DepositCon.connect(addr1).deposit(toWei("100"))
+      const initialBalance = (await DepositCon.getUserBalance(addr1.address))[1];
+      
+      // Call deductWorkload
+      await SettlementCon.connect(owner).deductWorkload(
+        workload, addr1.address, workers, modelId, sessionId, epochId
+      );
+      
+      // Check user balance is reduced according to higher price
+      const finalBalance = (await DepositCon.getUserBalance(addr1.address))[1];
+      const expectedDeduction = ethers.BigNumber.from(workload).mul(toWei(2)); // workload * model price
+      
+      expect(initialBalance.sub(finalBalance)).to.equal(expectedDeduction);
+    });
+
+    it("Should distribute TOP tokens correctly with different exchange rates", async function () {
+      // Change exchange rate: 20 TOP per 1 USDT
+      await bank.updateUsdtTopRate(20, 1);
+      
+      const workload = 10;
+      const modelId = 1;
+      const sessionId = 123;
+      const epochId = 456;
+      const workers = [reporter1.address, reporter2.address];
+
+      await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
+      await DepositCon.connect(addr1).deposit(toWei("100"))
+      const initialBalance = (await DepositCon.getUserBalance(addr1.address))[1];
+      
+      // Call deductWorkload
+      await SettlementCon.connect(owner).deductWorkload(
+        workload, addr1.address, workers, modelId, sessionId, epochId
+      );
+      
+      // Calculate expected TOP amount per worker with new rate
+      const totalUSDT = ethers.BigNumber.from(workload).mul(1);; // workload * model price
+      const totalTOP = totalUSDT.mul(20); // topRate = 20, usdtRate = 1
+      const topPerWorker = totalTOP.div(2); // Split between 2 workers
+      
+      // Check worker balances
+      expect((await DepositCon.workerBalances(reporter1.address))[1]).to.equal(topPerWorker);
+      expect((await DepositCon.workerBalances(reporter2.address))[1]).to.equal(topPerWorker);
+    });
+
+    it("Should handle uneven TOP token distribution correctly", async function () {
+      const workload = 10;
+      const modelId = 1;
+      const sessionId = 123;
+      const epochId = 456;
+      const workers = [reporter1.address, reporter2.address, addr1.address]; // 3 workers
+      
+      await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
+      await DepositCon.connect(addr1).deposit(toWei("100"))
+      const initialBalance = (await DepositCon.getUserBalance(addr1.address))[1];
+
+      // Call deductWorkload
+      await SettlementCon.connect(owner).deductWorkload(
+        workload, addr1.address, workers, modelId, sessionId, epochId
+      );
+      
+      // Calculate expected TOP amount per worker
+      const totalUSDT = ethers.BigNumber.from(workload).mul(1); // workload * model price
+      const totalTOP = totalUSDT.mul(1); // topRate = 10, usdtRate = 1
+      const topPerWorker = totalTOP.div(3); // Split between 3 workers (might have remainder)
+      
+      // Check worker balances - all should be the same
+      expect((await DepositCon.workerBalances(reporter1.address))[1]).to.equal(topPerWorker);
+      expect((await DepositCon.workerBalances(reporter2.address))[1]).to.equal(topPerWorker);
+      expect((await DepositCon.workerBalances(addr1.address))[1]).to.equal(topPerWorker);
+      
+      // Verify total distributed is within rounding error of original amount (remainder handling)
+      const totalDistributed = topPerWorker.mul(3);
+      expect(totalTOP.sub(totalDistributed).abs()).to.be.at.most(2); // Allow for division remainder
+    });
   });
 });

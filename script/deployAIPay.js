@@ -2,9 +2,9 @@ const toWei = (val) => ethers.utils.parseEther("" + val);
 
 async function main() {
   // const AIworkloadCon = "0xE77935C5c3D1110e7626C48d086Ec3F224D730c1";
-  const assetManagement = "0x0f87DEcFa025e2c9d3c9da509AAE9a58C9437d8B";
-  const nodesRegistry = "0x2661c26E13E2F71125815fDB8a057c45Da8AB2bB";
-  const aiModelUpload = "0x13c9447432C6E06503F446d593Cc50aC5C0195A0";
+  const assetManagement = "0x1582D0d87D3518216b7A780b2e452fdf81BA338F";
+  const nodesRegistry = "0xDee66F4500079041Fe2A795d9ADab04aFf9b04e8";
+  const aiModelUpload = "0xf64CDc1493a9bf3e7D47D853FB621F046e8E10F4";
   const usdtToken = "0xc9B4e5c5CD83EfA16bC89b49283381aD2c74710D";
   const topToken = "0x7e5eF930DA3b4F777dA4fAfb958047A5CaAe5D8b";
 
@@ -79,7 +79,6 @@ async function main() {
 
   console.log("bank:", bank.signer.address);
   await bank.updateUsdtTopRate(1, 1);
-  await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
 
   const [toprate, usdtrate] = await bank.usdtToTopRate();
   console.log(

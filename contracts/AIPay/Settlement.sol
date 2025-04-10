@@ -6,7 +6,6 @@ import "./Deposit.sol";
 import "./Bank.sol";
 import "../AI/AIModels.sol";
 
-
 contract Settlement is AccessControl {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
@@ -14,18 +13,7 @@ contract Settlement is AccessControl {
     Bank public bankContract;
     AIModels public aimodelContract;
 
-    // Mapping to store user balances
-    mapping(address => uint256) public userBalances;
-
-
-    //========================= tmp setting =========================
-    // xx u/token
-    uint256 public UperTokens = 1e9;
-
-    //========================= tmp setting =========================
-
     // Events
-    //event BalanceUpdated(address indexed user, uint256 previousBalance, uint256 newBalance);
     event DepositContractUpdated(address oldContract, address newContract);
 
     constructor(address _depositContractAddress, address _bankContractAddress, address _aimodelAddress) {
@@ -33,7 +21,6 @@ contract Settlement is AccessControl {
         bankContract = Bank(_bankContractAddress);
         aimodelContract = AIModels(_aimodelAddress);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(OPERATOR_ROLE, msg.sender);
     }
 
     /**
@@ -46,27 +33,6 @@ contract Settlement is AccessControl {
         depositContract = Deposit(_newDepositContract);
         emit DepositContractUpdated(oldContract, _newDepositContract);
     }
-
-    /**
-     * @dev Gets a user's current balance
-     * @param user The address of the user
-     * @return The user's current balance
-     */
-    function getUserBalance(address user) external view returns (uint256) {
-        return userBalances[user];
-    }
-
-    /**
-         * @dev Updates a user's balance in the Settlement contract by fetching the updated balance from the deposit contract
-         * @param user The address of the user
-        */
-    //function refreshUserBalance(address user, uint256 newBalance) external onlyRole(OPERATOR_ROLE) {
-    //    (, uint256 previousBalance) = depositContract.getUserBalance(user);
-
-    //    //todo need to add some check？
-    //    depositContract.updateUserBalance(user,newBalance);
-    //    emit BalanceUpdated(user, previousBalance, newBalance);
-    //}
 
     //todo user + miner 地址
     //
@@ -87,33 +53,20 @@ contract Settlement is AccessControl {
         uint256 sessionId,
         uint256 epochId
     ) external onlyRole(OPERATOR_ROLE) {
-
-        //换算关系
         uint256 needReserveU = _calculatePrice(workload,modelId) ;
 
         // current user balance
         (, uint256 previousBalance) = depositContract.getUserBalance(user);
-
-        console.log("previousBalance:",previousBalance);
-        console.log("user:",user);
-        console.log("needReserveU:",needReserveU);
         require(previousBalance >= needReserveU, "not enought for paying");
 
-
         // update the top
-
         (uint256 topR, uint256 usdtR) = bankContract.usdtToTopRate();
         uint256 topamount = needReserveU * topR / usdtR;
-
-        console.log(".....topR: ",topR);
-        console.log(".....usdtR: ",usdtR);
 
         require(topamount != 0, "topamount cannot be zero");
         uint256 topamountperworker = topamount / worker.length;
 
-
         depositContract.updateUserBalance(user,previousBalance - needReserveU);
-        //emit BalanceUpdated(user, previousBalance, userBalances[user]);
         emit WorkloadDeducted(workload, user, worker, modelId, sessionId, epochId);
 
         require(topamountperworker != 0, "topamountperworker cannot be zero");
@@ -131,15 +84,11 @@ contract Settlement is AccessControl {
         uint256 epochId
     );
 
-
     function _calculatePrice(uint256 workload, uint256 modelId) internal view returns (uint256) {
-
         (, , , address modelAddress, , , uint256 price ) = aimodelContract.uploadModels(modelId);
         require(modelAddress != address(0), "Model does not exist");
         require(price != 0, "Model price cannot be zero");
 
-        console.log("price: ",price);
-        console.log("workload: ",workload);
         return price * workload;
     }
 }

@@ -247,6 +247,12 @@ contract ModelFactory is
         tokenImplementation = token;
     }
 
+    function setLockImplementations(
+        address token
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        lockTokenImplemention = token;
+    }
+
     function setMaturityDuration(
         uint256 newDuration
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {

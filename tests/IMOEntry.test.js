@@ -1,7 +1,6 @@
 const { expect } = require("chai");
 const { ethers,  UniswapV2Deployer} = require("hardhat");
 const { deployAndCloneContract } = require("./utils")
-const { AddressZero } = require("ethers").constants;
 
 describe("IMOEntry Contract", function () {
   let imoEntry, internalFactory, internalRouter, aiModels, modelFactory;
@@ -67,6 +66,10 @@ describe("IMOEntry Contract", function () {
     await imoEntryTemplate.deployed();
     clonedContractAddress = await deployAndCloneContract(ethers, imoEntryTemplate.address);
     imoEntry = await ethers.getContractAt("IMOEntry", clonedContractAddress);
+
+    const Redeem = await ethers.getContractFactory("Redeem");
+    redeem = await Redeem.deploy(assetToken.address, UNISWAP_ROUTER);
+    await redeem.deployed();
 
     // configure erc20 asset
 
@@ -216,5 +219,11 @@ describe("IMOEntry Contract", function () {
     balance = await modelToken.balanceOf(admin.address)
     await modelToken.connect(admin).burn(10)
     await expect(imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(1090000), tokenAddress)).to.be.revertedWith("Token not trading");
+
+    amount1 = ethers.BigNumber.from(10).pow(decimal).mul(2000000)
+    await assetToken.transfer(feeTo.address, amount1);
+    await assetToken.connect(feeTo).approve(redeem.address, ethers.BigNumber.from(10).pow(decimal).mul(100))
+    await expect(redeem.connect(feeTo).redeemAndBurn(application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), 0)).
+      to.emit(redeem, "RedeemedAndBurned").withArgs(feeTo.address, application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), ethers.BigNumber.from("85422439178625748234"));
   });
 });

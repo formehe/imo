@@ -108,7 +108,7 @@ describe("IMOEntry Contract", function () {
       500 /** fee 10**12 */, 
       1000000000/* uint256 initialSupply_ */, 
       30000/*uint256 assetRate_ ~~100 token*/, 
-      99 /*%,uint256 maxTx_*/, 
+      50 /*%,uint256 maxTx_*/, 
       modelFactory.address, 
       ethers.utils.parseEther("1000000"), // gradThreshold ~~10^6
       UNISWAP_ROUTER,
@@ -213,8 +213,14 @@ describe("IMOEntry Contract", function () {
     await expect(imoEntry.unwrapToken(tokenAddress, [admin.address])).to.be.revertedWith("Token is not graduated yet")
     const tokenData = await imoEntry.tokenInfo(tokenAddress);
     expect(tokenData.data.volume).to.not.equal(0);
+    await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(1000), tokenAddress);
+    await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(10000), tokenAddress);
+    await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(100000), tokenAddress);
+    await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(400000), tokenAddress);
+    await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(400000), tokenAddress);
     // await expect(imoEntry.connect(addr1).buy(ethers.utils.parseEther("1090000"), tokenAddress)).to.emit(imoEntry, "Graduated");
-    tx = await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(1090000), tokenAddress);
+    tx = await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(100000), tokenAddress);
+    // tx = await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(1090000), tokenAddress);
     const receipt = await tx.wait(); 
     const logs = receipt.events.find(e => e.address === modelFactory.address);
     
@@ -236,6 +242,6 @@ describe("IMOEntry Contract", function () {
     await assetToken.transfer(feeTo.address, amount1);
     await assetToken.connect(feeTo).approve(redeem.address, ethers.BigNumber.from(10).pow(decimal).mul(100))
     await expect(redeem.connect(feeTo).redeemAndBurn(application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), 0)).
-      to.emit(redeem, "RedeemedAndBurned").withArgs(feeTo.address, application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), ethers.BigNumber.from("85422439178625748234"));
+      to.emit(redeem, "RedeemedAndBurned").withArgs(feeTo.address, application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), ethers.BigNumber.from("99276169931820281388"));
   });
 });

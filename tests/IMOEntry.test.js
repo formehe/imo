@@ -10,7 +10,7 @@ describe("IMOEntry Contract", function () {
   let UNISWAP_ROUTER;
 
   beforeEach(async function () {
-    [owner, addr1, admin, feeTo] = await ethers.getSigners();
+    [owner, addr1, admin, feeTo, withdrawer] = await ethers.getSigners();
 
     const { factory, router, weth9 } = await UniswapV2Deployer.deploy(owner);
     UNISWAP_ROUTER = router.address;
@@ -71,10 +71,16 @@ describe("IMOEntry Contract", function () {
     redeem = await Redeem.deploy(assetToken.address, UNISWAP_ROUTER);
     await redeem.deployed();
 
+    const TokenVaultTemplate = await ethers.getContractFactory("TokenVault");
+    tokenVaultTemplate = await TokenVaultTemplate.deploy();
+    await tokenVaultTemplate.deployed();
+    clonedContractAddress = await deployAndCloneContract(ethers, tokenVaultTemplate.address);
+    tokenVault = await ethers.getContractAt("TokenVault", clonedContractAddress);
+    
     // configure erc20 asset
 
     // configure internal factory
-    await internalFactory.initialize(imoEntry.address /*address taxVault_*/, 1 /* %, uint256 buyTax_ */, 1 /*%， uint256 sellTax_*/)
+    await internalFactory.initialize(tokenVault.address /*address taxVault_*/, 1 /* %, uint256 buyTax_ */, 1 /*%， uint256 sellTax_*/)
     await internalFactory.grantRole(await internalFactory.CREATOR_ROLE(), imoEntry.address)
     await internalFactory.grantRole(await internalFactory.ADMIN_ROLE(), admin.address)
     await internalFactory.connect(admin).setRouter(internalRouter.address)
@@ -90,12 +96,15 @@ describe("IMOEntry Contract", function () {
     await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
     await modelFactory.setTokenTaxParams(0, 0, 0)
 
+    await tokenVault.initialize(assetToken.address)
+    await tokenVault.grantRole(await tokenVault.WITHDRAW_ROLE(), withdrawer.address)
+
   
     // configure IMOEntry
     await imoEntry.initialize(
       internalFactory.address, 
       internalRouter.address, 
-      imoEntry.address/*address feeTo_*/, 
+      tokenVault.address/*address feeTo_*/, 
       500 /** fee 10**12 */, 
       1000000000/* uint256 initialSupply_ */, 
       30000/*uint256 assetRate_ ~~100 token*/, 
@@ -220,7 +229,10 @@ describe("IMOEntry Contract", function () {
     await modelToken.connect(admin).burn(10)
     await expect(imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(1090000), tokenAddress)).to.be.revertedWith("Token not trading");
 
-    amount1 = ethers.BigNumber.from(10).pow(decimal).mul(2000000)
+    remain = await assetToken.balanceOf(tokenVault.address)
+    await tokenVault.connect(withdrawer).withdraw(ethers.BigNumber.from(10).pow(decimal).mul(5), owner.address);
+    expect(remain.sub(await assetToken.balanceOf(tokenVault.address))).to.equal(ethers.BigNumber.from(10).pow(decimal).mul(5))
+
     await assetToken.transfer(feeTo.address, amount1);
     await assetToken.connect(feeTo).approve(redeem.address, ethers.BigNumber.from(10).pow(decimal).mul(100))
     await expect(redeem.connect(feeTo).redeemAndBurn(application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), 0)).

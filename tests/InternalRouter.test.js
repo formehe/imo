@@ -1,7 +1,6 @@
 const { expect } = require("chai");
 const { ethers, upgrades, UniswapV2Deployer} = require("hardhat");
 const {deployAndCloneContract} = require("./utils");
-const internal = require("stream");
 
 describe("InternalRouter Contract", function () {
     let internalFactory, internalRouter;

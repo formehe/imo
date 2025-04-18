@@ -143,6 +143,18 @@ describe("AIWorkload", function () {
       assetManagement.address,
       SettlementCon.address
     );
+    await expect(AIWorkload.deploy(
+      nodesRegistry.address,
+      AddressZero,
+      assetManagement.address,
+      SettlementCon.address
+    )).to.be.revertedWith("Invalid model registry")
+    await expect(AIWorkload.deploy(
+      nodesRegistry.address,
+      aiModelUpload.address,
+      AddressZero,
+      SettlementCon.address
+    )).to.be.revertedWith("Invalid stake token")
     await aiWorkload.deployed();
 
     await expect(
@@ -266,6 +278,30 @@ describe("AIWorkload", function () {
       await usdtToken.connect(addr3).approve(DepositCon.address, toWei("200"));
       await DepositCon.connect(addr3).deposit(toWei("200"));
 
+      await expect(aiWorkload
+        .connect(addr1)
+        .reportWorkload(
+          addr3.address,
+          AddressZero,
+          workload,
+          1,
+          1,
+          1,
+          signatures
+        )).to.be.revertedWith("Invalid user")
+
+      await expect(aiWorkload
+        .connect(addr1)
+        .reportWorkload(
+          addr3.address,
+          addr3.address,
+          workload,
+          100,
+          1,
+          1,
+          signatures
+        )).to.be.revertedWith("Model not exist")
+
       const tx = await aiWorkload
         .connect(addr1)
         .reportWorkload(
@@ -287,6 +323,13 @@ describe("AIWorkload", function () {
         addr3.address
       );
       expect(totalWorkload.totalWorkload).to.equal(workload);
+      let workload1 = await aiWorkload.getNodeWorkload(1,1)
+      expect(workload1.epochId).to.equal(1)
+      expect(await aiWorkload.getLastEpoch(1)).to.equal(1)
+      workload1 = await aiWorkload.getTotalWorkReport(addr1.address)
+      expect(workload1.totalWorkload).to.equal(200)
+      workload1 = await aiWorkload.getTotalModelWorkload(1)
+      expect(workload1.totalWorkload).to.equal(200)
     });
 
     it("should fail if epochId is out of order", async function () {

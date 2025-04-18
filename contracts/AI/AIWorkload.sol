@@ -8,7 +8,6 @@ import "./ShareDataType.sol";
 import "./NodesRegistry.sol";
 import "./AIModels.sol";
 import "../AIPay/Settlement.sol";
-import "hardhat/console.sol";
 
 contract AIWorkload is ReentrancyGuard{
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -80,15 +79,10 @@ contract AIWorkload is ReentrancyGuard{
             bool duplicate = false;
             bytes memory signatureBytes = abi.encodePacked(signatures[i].r, signatures[i].s, signatures[i].v);
             (address _address,) = ECDSA.tryRecover(ECDSA.toEthSignedMessageHash(content), signatureBytes);
-            console.log("_address:",_address);
-            console.log("worker:",worker);
-            console.log("reporter:",reporter);
-
-            console.log("nodeRegistry...");
             if (!nodeRegistry.get(_address).active) {
                 continue;
             }
-            console.log("nodeRegistry...end");
+
             for (uint256 j = 0; j < votes; j++) {
                 if(signers[j] == _address) {
                     duplicate = true;
@@ -96,16 +90,14 @@ contract AIWorkload is ReentrancyGuard{
                 }
             }
 
-            console.log("duplicate...");
             if (duplicate) {
                 continue;
             }
-            console.log("_address == worker");
+
             if (_address == worker) {
                 containsWorker = true;
             }
 
-            console.log("_address == reporter");
             if (_address == reporter) {
                 require(nodeRegistry.proxyNodes(_address), "Not proxy");
                 containsReporter = true;
@@ -115,11 +107,8 @@ contract AIWorkload is ReentrancyGuard{
             votes += 1;
         }
 
-        console.log("votes:",votes);
         if (votes < ((signatures.length + 1) / 2)
             || !containsWorker || !containsReporter) {
-            console.log("containsWorker:",containsWorker);
-            console.log("containsReporter:",containsReporter);
             return false;
         }
 

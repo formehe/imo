@@ -1,8 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { deployAndCloneContract } = require("./utils");
 const toWei = (val) => ethers.utils.parseEther("" + val);
-const { AddressZero } = require("ethers").constants;
 
 describe("Settlement Contract", function () {
   let AIWorkload, aiWorkload;
@@ -399,7 +397,7 @@ describe("Settlement Contract", function () {
         workload, addr1.address, workers, modelId, sessionId, epochId
       ))
         .to.emit(SettlementCon, "WorkloadDeducted")
-        .withArgs(workload, addr1.address, workers, modelId, sessionId, epochId);
+        .withArgs(workload, addr1.address, workers, modelId, sessionId, epochId, true);
     });
 
     it("Should revert if called by non-owner", async function () {     
@@ -421,10 +419,13 @@ describe("Settlement Contract", function () {
       const sessionId = 123;
       const epochId = 456;
       const workers = [reporter1.address, reporter2.address];
+
+      await usdtToken.connect(addr2).approve(DepositCon.address, 100)
+      await DepositCon.connect(addr2).deposit(100)
       
       await expect(SettlementCon.connect(owner).deductWorkload(
         workload, addr2.address, workers, modelId, sessionId, epochId
-      )).to.be.revertedWith("not enought for paying");
+      )).to.emit(SettlementCon, "WorkloadDeducted").withArgs(workload, addr2.address, workers, modelId, sessionId, epochId, false);
     });
 
     it("Should revert if model does not exist", async function () {

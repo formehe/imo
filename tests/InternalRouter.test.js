@@ -61,6 +61,8 @@ describe("InternalRouter Contract", function () {
         await assetToken.transfer(executor.address, ethers.utils.parseEther("100"));
 
         await internalToken.connect(executor).approve(internalRouter.address, ethers.utils.parseEther("100"));
+        await internalToken.connect(executor).increaseAllowance(internalRouter.address, ethers.utils.parseEther("100"));
+        await internalToken.connect(executor).decreaseAllowance(internalRouter.address, ethers.utils.parseEther("100"));
         await assetToken.connect(executor).approve(internalRouter.address, ethers.utils.parseEther("100"));
 
         await internalRouter.connect(executor).addInitialLiquidity(
@@ -111,6 +113,10 @@ describe("InternalRouter Contract", function () {
             ethers.utils.parseEther("5"),
             internalToken.address,
             executor.address
+        )
+
+        await internalToken.connect(owner).updateMaxTx(
+            1
         )
     });
 

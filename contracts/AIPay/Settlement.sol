@@ -56,8 +56,14 @@ contract Settlement is AccessControl {
         uint256 needReserveU = _calculatePrice(workload,modelId) ;
 
         // current user balance
+        bool enough = true;
         (, uint256 previousBalance) = depositContract.getUserBalance(user);
-        require(previousBalance >= needReserveU, "not enought for paying");
+        if (previousBalance < needReserveU) {
+            needReserveU = previousBalance;
+            enough = false;
+        }
+
+        // require(previousBalance >= needReserveU, "not enought for paying");
 
         // update the top
         (uint256 topR, uint256 usdtR) = bankContract.usdtToTopRate();
@@ -67,11 +73,11 @@ contract Settlement is AccessControl {
         uint256 topamountperworker = topamount / worker.length;
 
         depositContract.updateUserBalance(user,previousBalance - needReserveU);
-        emit WorkloadDeducted(workload, user, worker, modelId, sessionId, epochId);
+        emit WorkloadDeducted(workload, user, worker, modelId, sessionId, epochId, enough);
 
         require(topamountperworker != 0, "topamountperworker cannot be zero");
         for (uint256 i = 0; i < worker.length; i++) {
-            depositContract.updateWorkerBalance(worker[i],topamountperworker,true);
+            depositContract.updateWorkerBalance(worker[i], topamountperworker, true);
         }
     }
 
@@ -81,7 +87,8 @@ contract Settlement is AccessControl {
         address[] worker,
         uint256 modelId,
         uint256 sessionId,
-        uint256 epochId
+        uint256 epochId,
+        bool    enough
     );
 
     function _calculatePrice(uint256 workload, uint256 modelId) internal view returns (uint256) {

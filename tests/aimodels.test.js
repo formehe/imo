@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { AddressZero } = require("ethers").constants;
 describe("AIModels Contract", function () {
     let aiModelUpload;
     let owner, user1;
@@ -68,6 +69,8 @@ describe("AIModels Contract", function () {
         await nodesGovernance.deployed();
         
         const AIModelUploadFactory = await ethers.getContractFactory("AIModels");
+        await expect(AIModelUploadFactory.deploy(AddressZero, assetManagement.address)).to.be.revertedWith("Invalid quantity of registry address")
+        await expect(AIModelUploadFactory.deploy(nodesGovernance.address,AddressZero)).to.be.revertedWith("Invalid stake token")
         aiModelUpload = await AIModelUploadFactory.deploy(nodesGovernance.address, assetManagement.address);
         await aiModelUpload.deployed();
 
@@ -98,6 +101,8 @@ describe("AIModels Contract", function () {
         expect(uploadModel.modelVersion).to.equal(modelVersion);
         expect(uploadModel.uploader).to.equal(user1.address);
         expect(uploadModel.extendInfo).to.equal(modelInfo);
+
+        await aiModelUpload.connect(user1).recordModelUpload(modelName, "v2.0", modelInfo, 1)
     });
 
     it("Should not allow recording duplicate model upload", async function () {
@@ -121,6 +126,8 @@ describe("AIModels Contract", function () {
         await aiModelUpload.connect(user1).recordModelUpload(modelName, modelVersion, modelInfo, 1);
     
         await aiModelUpload.connect(addr1).reportDeployment(modelId);
+        await expect(aiModelUpload.connect(addr1).reportDeployment(modelId)).to.be.revertedWith("Model distribution already exist")
+        await expect(aiModelUpload.connect(addr1).reportDeployment(100)).to.be.revertedWith("Model is not exist")
     
         const distribution = await aiModelUpload.getModelDistribution(modelId);
         expect(distribution).to.include(addr1.address);
@@ -140,6 +147,7 @@ describe("AIModels Contract", function () {
         await aiModelUpload.connect(addr1).reportDeployment(modelId);
 
         await aiModelUpload.connect(addr1).removeDeployment(modelId);
+        await aiModelUpload.connect(addr2).removeDeployment(modelId);
 
         const distribution = await aiModelUpload.getModelDistribution(modelId);
         expect(distribution).to.not.include(addr1.address);

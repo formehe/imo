@@ -1,6 +1,9 @@
 const toWei = (val) => ethers.utils.parseEther("" + val);
+const { deployAndCloneContract } = require("../tests/utils")
 
 async function main() {
+  [owner] = await ethers.getSigners();
+
   // const AIworkloadCon = "0xE77935C5c3D1110e7626C48d086Ec3F224D730c1";
   const assetManagement = "0x1582D0d87D3518216b7A780b2e452fdf81BA338F";
   const nodesRegistry = "0xDee66F4500079041Fe2A795d9ADab04aFf9b04e8";
@@ -53,6 +56,14 @@ async function main() {
   console.log("AI Work is :", aiWorkload.address);
   console.log("Transaction hash :", aiWorkload.deployTransaction.hash);
 
+  const TaxVaultTemplate = await ethers.getContractFactory("TaxVault");
+  taxVaultTemplate = await TaxVaultTemplate.deploy();
+  await taxVaultTemplate.deployed();
+  console.log("Transaction hash :", taxVaultTemplate.deployTransaction.hash);
+  clonedContractAddress = await deployAndCloneContract(ethers, taxVaultTemplate.address);
+  taxVault = await ethers.getContractAt("TaxVault", clonedContractAddress);
+  console.log("TaxVault is :", taxVault.address);
+  
   const grantRoleTx = await SettlementCon.grantRole(
     MINTER_ROLE,
     aiWorkload.address
@@ -87,6 +98,11 @@ async function main() {
     " ++usdtrate:",
     usdtrate.toString()
   );
+
+  await SettlementCon.updateInferenceTax(1)
+  await SettlementCon.updateTaxVault(taxVault.address)
+  await taxVault.initialize(DepositCon.address, topToken)
+  await taxVault.grantRole(await taxVault.WITHDRAW_ROLE(), owner.address)
 }
 
 main().catch((error) => {

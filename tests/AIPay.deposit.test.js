@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { deployAndCloneContract } = require("./utils")
 
 const toWei = (val) => ethers.utils.parseEther("" + val);
 
@@ -142,6 +143,12 @@ describe("Deposit Contract", function () {
     );
     await aiModelUpload.deployed();
 
+    const TaxVaultTemplate = await ethers.getContractFactory("TaxVault");
+    taxVaultTemplate = await TaxVaultTemplate.deploy();
+    await taxVaultTemplate.deployed();
+    clonedContractAddress = await deployAndCloneContract(ethers, taxVaultTemplate.address);
+    taxVault = await ethers.getContractAt("TaxVault", clonedContractAddress);
+
     const modelName = "TestModel";
     const modelVersion = "v1.0";
     const modelInfo = "Test model description";
@@ -188,7 +195,10 @@ describe("Deposit Contract", function () {
     const updateRateTx = await bank.connect(owner).updateUsdtTopRate(1, 1);
     await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
 
-    const [toprate, usdtrate] = await bank.usdtToTopRate();
+    await SettlementCon.updateInferenceTax(1)
+    await SettlementCon.updateTaxVault(taxVault.address)
+    await taxVault.initialize(DepositCon.address, topToken.address)
+    await taxVault.grantRole(await taxVault.WITHDRAW_ROLE(), addr6.address)
   });
 
   //---------------------------------------deposit---------------------------------------
@@ -198,7 +208,6 @@ describe("Deposit Contract", function () {
       .approve(DepositCon.address, toWei(1));
     await approveTx.wait(); // Wait for the approval transaction to be mined
 
-    const ownerUsdtBalance = await usdtToken.balanceOf(owner.address);
     const DepositCon_User_deposit = await DepositCon.connect(owner).deposit(
       toWei(1)
     );
@@ -214,8 +223,6 @@ describe("Deposit Contract", function () {
       .connect(owner)
       .approve(DepositCon.address, toWei(1));
     await approveTx.wait(); // Wait for the approval transaction to be mined
-
-    const ownerUsdtBalance = await usdtToken.balanceOf(owner.address);
 
     const DepositCon_User_deposit = await DepositCon.connect(owner).deposit(
       toWei(1)
@@ -239,8 +246,6 @@ describe("Deposit Contract", function () {
       .approve(DepositCon.address, toWei(1));
     await approveTx.wait(); // Wait for the approval transaction to be mined
 
-    const ownerUsdtBalance = await usdtToken.balanceOf(owner.address);
-
     const DepositCon_User_deposit = await DepositCon.connect(owner).deposit(
       toWei(1)
     );
@@ -257,8 +262,6 @@ describe("Deposit Contract", function () {
       .connect(owner)
       .approve(DepositCon.address, toWei(1));
     await approveTx.wait(); // Wait for the approval transaction to be mined
-
-    const ownerUsdtBalance = await usdtToken.balanceOf(owner.address);
 
     const DepositCon_User_deposit = await DepositCon.connect(owner).deposit(
       toWei(1)
@@ -471,7 +474,6 @@ describe("Deposit Contract", function () {
 
     it("Should correctly track total and current balance after multiple deposits", async function () {
       const amount1 = ethers.utils.parseEther("100");
-      const amount2 = ethers.utils.parseEther("100");
 
       await usdtToken.connect(addr1).approve(DepositCon.address, amount1)
 

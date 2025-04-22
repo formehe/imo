@@ -1,11 +1,13 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { deployAndCloneContract } = require("./utils")
 const toWei = (val) => ethers.utils.parseEther("" + val);
 
 describe("Settlement Contract", function () {
   let AIWorkload, aiWorkload;
   let nodesGovernanceCon;
   let owner, reporter1, reporter2;
+  let modelPrice1 = 1000
   const ROUND_DURATION_TIME = 3600; // 1 hour
   beforeEach(async function () {
     //=================== deposit contract part =======================================
@@ -164,7 +166,7 @@ describe("Settlement Contract", function () {
       modelName,
       modelVersion,
       modelInfo,
-      1
+      modelPrice1
     );
 
     await aiModelUpload.recordModelUpload(
@@ -192,6 +194,12 @@ describe("Settlement Contract", function () {
     );
     await aiWorkload.deployed();
 
+    const TaxVaultTemplate = await ethers.getContractFactory("TaxVault");
+    taxVaultTemplate = await TaxVaultTemplate.deploy();
+    await taxVaultTemplate.deployed();
+    clonedContractAddress = await deployAndCloneContract(ethers, taxVaultTemplate.address);
+    taxVault = await ethers.getContractAt("TaxVault", clonedContractAddress);
+
     //grantrole
     const MINTER_ROLE = ethers.utils.keccak256(
       ethers.utils.toUtf8Bytes("OPERATOR_ROLE")
@@ -205,8 +213,11 @@ describe("Settlement Contract", function () {
       .connect(owner)
       .updateUsdtTopRate(1, 1);
     await updateRateTx.wait(); // Ensure the updateRate transaction is mined successfully
-
-    const [toprate, usdtrate] = await bank.usdtToTopRate();
+    
+    await SettlementCon.updateInferenceTax(1)
+    await SettlementCon.updateTaxVault(taxVault.address)
+    await taxVault.initialize(DepositCon.address, topToken.address)
+    await taxVault.grantRole(await taxVault.WITHDRAW_ROLE(), addr6.address)
   });
 
   // it("Should initialize the contract correctly", async function () {
@@ -221,7 +232,6 @@ describe("Settlement Contract", function () {
     await DepositCon.connect(addr3).deposit(toWei("200"));
 
     //check the addr1 by getUserBalance
-    const userBalance = await DepositCon.getUserBalance(addr3.address);
     const workload = 200;
     const content = ethers.utils.defaultAbiCoder.encode(
       ["address", "address", "uint256", "uint256", "uint256", "uint256"],
@@ -260,7 +270,6 @@ describe("Settlement Contract", function () {
       signatures
     );
 
-    const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
     await expect(tx)
       .to.emit(aiWorkload, "WorkloadReported")
       .withArgs(1, addr1.address, addr3.address, 1, workload, 1);
@@ -276,8 +285,6 @@ describe("Settlement Contract", function () {
   });
 
   it("Should set  the right deductWorkload ", async function () {
-    const data = await aiModelUpload.uploadModels(1);
-
     const approvetx = await usdtToken
       .connect(addr1)
       .approve(DepositCon.address, toWei("10000000000000"));
@@ -352,7 +359,7 @@ describe("Settlement Contract", function () {
       
       // Check user balance is reduced
       const finalBalance = (await DepositCon.getUserBalance(addr1.address))[1];
-      const expectedDeduction = ethers.BigNumber.from(workload).mul(1); // workload * model price
+      const expectedDeduction = ethers.BigNumber.from(workload).mul(modelPrice1); // workload * model price
       expect(initialBalance.sub(finalBalance)).to.equal(expectedDeduction);
     });
 
@@ -373,8 +380,8 @@ describe("Settlement Contract", function () {
       );
       
       // Calculate expected TOP amount per worker
-      const totalUSDT = ethers.BigNumber.from(workload).mul(1); // workload * model price
-      const totalTOP = totalUSDT.mul(1); // topRate = 10, usdtRate = 1
+      const totalUSDT = ethers.BigNumber.from(workload).mul(modelPrice1); // workload * model price
+      const totalTOP = totalUSDT.mul(1).mul(ethers.BigNumber.from(100).sub(await SettlementCon.inferenceTax())).div(ethers.BigNumber.from(100)); // topRate = 10, usdtRate = 1
       const topPerWorker = totalTOP.div(2); // Split between 2 workers
       
       // Check worker balances
@@ -456,7 +463,7 @@ describe("Settlement Contract", function () {
 
     it("Should revert if calculated TOP amount is zero", async function () {    
       // Set exchange rate to make TOP amount zero (0 TOP per 1 USDT)
-      await bank.updateUsdtTopRate(1, 2);
+      await bank.updateUsdtTopRate(1, 2*modelPrice1);
       
       const workload = 1;
       const modelId = 1;
@@ -464,7 +471,6 @@ describe("Settlement Contract", function () {
       const epochId = 456;
       const workers = [reporter1.address, reporter2.address];
       
-      const manyWorkers = Array(1000).fill(reporter1.address);
       await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
       await DepositCon.connect(addr1).deposit(toWei("100"))
 
@@ -527,7 +533,6 @@ describe("Settlement Contract", function () {
 
       await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
       await DepositCon.connect(addr1).deposit(toWei("100"))
-      const initialBalance = (await DepositCon.getUserBalance(addr1.address))[1];
       
       // Call deductWorkload
       await SettlementCon.connect(owner).deductWorkload(
@@ -535,8 +540,8 @@ describe("Settlement Contract", function () {
       );
       
       // Calculate expected TOP amount per worker with new rate
-      const totalUSDT = ethers.BigNumber.from(workload).mul(1);; // workload * model price
-      const totalTOP = totalUSDT.mul(20); // topRate = 20, usdtRate = 1
+      const totalUSDT = ethers.BigNumber.from(workload).mul(modelPrice1); // workload * model price
+      const totalTOP = totalUSDT.mul(20).mul(ethers.BigNumber.from(100).sub(await SettlementCon.inferenceTax())).div(ethers.BigNumber.from(100)); // topRate = 20, usdtRate = 1
       const topPerWorker = totalTOP.div(2); // Split between 2 workers
       
       // Check worker balances
@@ -553,7 +558,6 @@ describe("Settlement Contract", function () {
       
       await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
       await DepositCon.connect(addr1).deposit(toWei("100"))
-      const initialBalance = (await DepositCon.getUserBalance(addr1.address))[1];
 
       // Call deductWorkload
       await SettlementCon.connect(owner).deductWorkload(
@@ -561,8 +565,8 @@ describe("Settlement Contract", function () {
       );
       
       // Calculate expected TOP amount per worker
-      const totalUSDT = ethers.BigNumber.from(workload).mul(1); // workload * model price
-      const totalTOP = totalUSDT.mul(1); // topRate = 10, usdtRate = 1
+      const totalUSDT = ethers.BigNumber.from(workload).mul(modelPrice1); // workload * model price
+      const totalTOP = totalUSDT.mul(1).mul(ethers.BigNumber.from(100).sub(await SettlementCon.inferenceTax())).div(ethers.BigNumber.from(100)); // topRate = 10, usdtRate = 1
       const topPerWorker = totalTOP.div(3); // Split between 3 workers (might have remainder)
       
       // Check worker balances - all should be the same
@@ -573,6 +577,10 @@ describe("Settlement Contract", function () {
       // Verify total distributed is within rounding error of original amount (remainder handling)
       const totalDistributed = topPerWorker.mul(3);
       expect(totalTOP.sub(totalDistributed).abs()).to.be.at.most(2); // Allow for division remainder
+
+      await topToken.transfer(DepositCon.address, toWei(1))
+      await taxVault.connect(addr3).withdrawFromDeposit()
+      await taxVault.connect(addr6).withdraw(50, addr5.address)
     });
   });
 });

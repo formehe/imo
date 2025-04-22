@@ -2,6 +2,7 @@
 pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "./Deposit.sol";
 import "./Bank.sol";
 import "../AI/AIModels.sol";
@@ -12,15 +13,32 @@ contract Settlement is AccessControl {
     Deposit public depositContract;
     Bank public bankContract;
     AIModels public aimodelContract;
+    
+    uint256 public inferenceTax;
+    address public taxVault;
 
     // Events
     event DepositContractUpdated(address oldContract, address newContract);
+    event InferenceTaxUpdated(uint256 oldInferenceTax, uint256 newInferenceTax);
+    event TaxVaultUpdated(address oldTaxVault, address newTaxVault);
 
     constructor(address _depositContractAddress, address _bankContractAddress, address _aimodelAddress) {
         depositContract = Deposit(_depositContractAddress);
         bankContract = Bank(_bankContractAddress);
         aimodelContract = AIModels(_aimodelAddress);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    function updateInferenceTax(uint256 _inferenceTax) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_inferenceTax < 100, "Invalid inference tax");
+        emit InferenceTaxUpdated(inferenceTax, _inferenceTax);
+        inferenceTax = _inferenceTax;
+    }
+
+    function updateTaxVault(address _taxVault) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(Address.isContract(_taxVault), "Invalid inference tax");
+        emit TaxVaultUpdated(taxVault, _taxVault);
+        taxVault = _taxVault;
     }
 
     /**
@@ -70,6 +88,12 @@ contract Settlement is AccessControl {
         uint256 topamount = needReserveU * topR / usdtR;
 
         require(topamount != 0, "topamount cannot be zero");
+        if (inferenceTax > 0) {
+            uint256 tax = topamount * inferenceTax / 100;
+            topamount = topamount - tax;
+            depositContract.updateWorkerBalance(taxVault, tax, true);
+        }
+        
         uint256 topamountperworker = topamount / worker.length;
 
         depositContract.updateUserBalance(user,previousBalance - needReserveU);

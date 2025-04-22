@@ -266,8 +266,10 @@ describe("IMOEntry Contract", function () {
 
     await assetToken.transfer(feeTo.address, amount1);
     await assetToken.connect(feeTo).approve(redeem.address, ethers.BigNumber.from(10).pow(decimal).mul(100))
-    await expect(redeem.connect(feeTo).redeemAndBurn(application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), 0)).
+
+    await expect(redeem.connect(feeTo).redeemAndBurn(application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), 1)).
       to.emit(redeem, "RedeemedAndBurned").withArgs(feeTo.address, application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), ethers.BigNumber.from("83726058678288586849"));
+
     await modelToken.connect(admin).approve(feeTo.address, ethers.BigNumber.from(10).pow(decimal).mul(100))
     await modelToken.connect(feeTo).burnFrom(admin.address, 100)
     // await modelToken.connect(addr1).approve(feeTo.address, 100)
@@ -328,9 +330,7 @@ describe("IMOEntry Contract", function () {
     await modelToken.connect(admin).setSwapThresholdBasisPoints(1)
     await modelToken.connect(admin).setProjectTaxRates(1,1)
     await imoEntry.unwrapToken(tokenAddress, [admin.address])
-    console.log(await modelToken.balanceOf(admin.address))
     await modelToken.connect(admin).transfer(UNISWAP_ROUTER, 100)
-    console.log(await modelToken.balanceOf(modelToken.address))
     await modelToken.distributeTaxTokens()
   });
 });

@@ -197,7 +197,8 @@ describe("Deposit Contract", function () {
 
     await SettlementCon.updateInferenceTax(1)
     await SettlementCon.updateTaxVault(taxVault.address)
-    await taxVault.initialize(DepositCon.address, topToken.address)
+    await taxVault.initialize(topToken.address)
+    await taxVault.setDeposit(DepositCon.address)
     await taxVault.grantRole(await taxVault.WITHDRAW_ROLE(), addr6.address)
   });
 

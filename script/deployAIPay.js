@@ -101,7 +101,8 @@ async function main() {
 
   await SettlementCon.updateInferenceTax(1)
   await SettlementCon.updateTaxVault(taxVault.address)
-  await taxVault.initialize(DepositCon.address, topToken)
+  await taxVault.initialize(topToken)
+  await taxVault.setDeposit(DepositCon.address)
   await taxVault.grantRole(await taxVault.WITHDRAW_ROLE(), owner.address)
 }
 

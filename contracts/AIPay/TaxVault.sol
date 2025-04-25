@@ -23,7 +23,7 @@ contract TaxVault is Initializable, AccessControl, ReentrancyGuard{
     }
 
     function initialize(address _assetToken) external initializer {
-        require(Address.isContract(_assetToken), "Invalid token");
+        require(Address.isContract(_assetToken), "Invalid asset token");
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         assetToken = _assetToken;
     }

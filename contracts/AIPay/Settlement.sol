@@ -36,7 +36,7 @@ contract Settlement is AccessControl {
     }
 
     function updateTaxVault(address _taxVault) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(Address.isContract(_taxVault), "Invalid inference tax");
+        require(Address.isContract(_taxVault), "Invalid tax token");
         emit TaxVaultUpdated(taxVault, _taxVault);
         taxVault = _taxVault;
     }
@@ -93,7 +93,7 @@ contract Settlement is AccessControl {
             topamount = topamount - tax;
             depositContract.updateWorkerBalance(taxVault, tax, true);
         }
-        
+
         uint256 topamountperworker = topamount / worker.length;
 
         depositContract.updateUserBalance(user,previousBalance - needReserveU);

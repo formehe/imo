@@ -579,9 +579,16 @@ describe("Settlement Contract", function () {
       const totalDistributed = topPerWorker.mul(3);
       expect(totalTOP.sub(totalDistributed).abs()).to.be.at.most(2); // Allow for division remainder
 
+      await expect(taxVault.setRedeem(addr3.address)).to.be.revertedWith("Invalid redeem")
+      await expect(taxVault.setDeposit(addr3.address)).to.be.revertedWith("Invalid deposit")
+      
       await topToken.transfer(DepositCon.address, toWei(1))
       await taxVault.connect(addr3).withdrawFromDeposit()
       await taxVault.connect(addr6).withdraw(50, addr5.address)
+      await expect(taxVault.connect(addr6).redeem(addr5.address, 200, 10)).to.be.revertedWith("Insufficient asset token")
+      await expect(taxVault.connect(addr6).withdraw(200, addr5.address)).to.be.revertedWith("Insufficient asset token")
+      await taxVault.setRedeem(DepositCon.address)
+      // await expect(taxVault.connect(addr6).redeem(addr5.address, 20, 10)).to.be.revertedWith(/Error/)
     });
   });
 });

@@ -7,6 +7,7 @@ require("@nomiclabs/hardhat-etherscan")
 require('hardhat-abi-exporter')
 require('@solarity/hardhat-gobind')
 require('@onmychain/hardhat-uniswap-v2-deploy-plugin')
+require('solidity-coverage')
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html

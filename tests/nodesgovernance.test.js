@@ -1,13 +1,11 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { Wallet } = require("ethers");
 
 describe("NodesGovernance Contract", function () {
     let NodesGovernance;
     let nodesGovernance;
     let owner;
 
-    const DETECT_DURATION_TIME = 3600; // 1 hour
     const ROUND_DURATION_TIME = 3600;  // 1 hour
 
     beforeEach(async function () {

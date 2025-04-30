@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { ethers, upgrades, UniswapV2Deployer } = require("hardhat");
+const { ethers, UniswapV2Deployer } = require("hardhat");
 const { deployAndCloneContract } = require("./utils")
 const { AddressZero } = require("ethers").constants
 

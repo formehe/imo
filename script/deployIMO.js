@@ -1,4 +1,4 @@
-const { deployAndProxyContract } = require("../tests/utils")
+const { deployAndProxyContract,deployAndCloneContract} = require("../tests/utils")
 
 // Asset Management is : 0x1582D0d87D3518216b7A780b2e452fdf81BA338F
 // Node registry is : 0xDee66F4500079041Fe2A795d9ADab04aFf9b04e8
@@ -27,6 +27,7 @@ let   deployedContracts = [
     {name: "ModelFactory", address: "0xa8773c3c9d70bF5C5d274A3b1c8Db9238c638Abe"},
     {name: "IMOEntry", address: "0xd0f82eb271Ab78B76A669eD1288041495249A768"},
     {name: "TokenVault", address: "0x8258C2C45B4ad9bEa8AD62bf4Cfa470B3B9B2ca7"},
+    {name: "Redeem", address: "0x28425f2Bd5Fb311E29FE693Fe1dEC893D61a8F6c"},
 ]
 
 async function deployWithRetry(factory, retries = 5, delay = 5000) {
@@ -74,6 +75,7 @@ function getAddressByName(name) {
 async function main() {
     [owner] = await ethers.getSigners();
 
+    const TAX_VAULT = "";
     const UNISWAP_ROUTER = "0x626459cF9438259ed0812D71650568306486CB00";
     const AI_MODELS = "0xf64CDc1493a9bf3e7D47D853FB621F046e8E10F4";
     const BUY_TAX = 1; //%, internal swap tax
@@ -156,15 +158,9 @@ async function main() {
         console.log("ModelTokenTempalte is :", modelTokenTemplate.address)
         
         if (contract === "0x") {
-            const proxyAddress = await deployAndProxyContract(ethers, modelTokenTemplate.address, proxyAdmin.address)
-            const modelToken = await ModelTokenTemplate.attach(proxyAddress);
+            const proxyAddress = await deployAndCloneContract(ethers, modelTokenTemplate.address)
             console.log("ModelToken is :", proxyAddress)
-            return modelToken
-        } else {
-            const proxy = await ethers.getContractAt("TransparentUpgradeableProxy", contract)
-            await proxyAdmin.upgrade(proxy.address, modelTokenTemplate.address);
-            const modelToken = await ModelTokenTemplate.attach(contract);
-            console.log("ModelToken is :", contract)
+            const modelToken = await ethers.getContractAt("ModelToken", proxyAddress);
             return modelToken
         }
     })()
@@ -174,17 +170,11 @@ async function main() {
         const ModelLockTokenTemplate = await ethers.getContractFactory("ModelLockToken");
         modelLockTokenTemplate = await deployWithRetry(ModelLockTokenTemplate)
         console.log("ModelLockTokenTempalte is :", modelLockTokenTemplate.address)
-        
+
         if (contract === "0x") {
-            const proxyAddress = await deployAndProxyContract(ethers, modelLockTokenTemplate.address, proxyAdmin.address)
-            const modelLockToken = await ModelLockTokenTemplate.attach(proxyAddress);
+            const proxyAddress = await deployAndCloneContract(ethers, modelLockTokenTemplate.address)
             console.log("ModelLockToken is :", proxyAddress)
-            return modelLockToken
-        } else {
-            const proxy = await ethers.getContractAt("TransparentUpgradeableProxy", contract)
-            await proxyAdmin.upgrade(proxy.address, modelLockTokenTemplate.address);
-            const modelLockToken = await ModelLockTokenTemplate.attach(contract);
-            console.log("ModelLockToken is :", contract)
+            const modelLockToken = await ethers.getContractAt("ModelLockToken", proxyAddress);
             return modelLockToken
         }
     })()
@@ -250,6 +240,22 @@ async function main() {
         }
     })()
 
+    const redeem = await (async () => {
+        contract = getAddressByName("Redeem")
+        if (contract === "0x") {
+            const Redeem = await ethers.getContractFactory("Redeem");
+            redeem = await Redeem.deploy(assetAddress, UNISWAP_ROUTER)
+            await redeem.deployed()
+            console.log("Redeem is :", redeem.address)
+            console.log("Transaction hash :", redeem.deployTransaction.hash)
+            return redeem
+        } else {
+            redeem = await ethers.getContractAt("Redeem", contract);
+            console.log("Redeem is :", redeem.address)
+            return redeem
+        }
+    })()
+
     // configure token vault
     contract = getAddressByName("TokenVault")
     if (contract === "0x") {
@@ -287,6 +293,9 @@ async function main() {
         await modelFactory.setTokenTaxParams(0, 0, 0) // set extra external swap tax
         await modelFactory.setMaturityDuration(MATURITY_DURATION) //set 10 years of initial asset lock time
     }
+
+    const taxVault = await ethers.getContractAt("TaxVault", contract)
+    await taxVault.setReedm(redeem.address)
 
     // configure IMOEntry
     contract = getAddressByName("IMOEntry")

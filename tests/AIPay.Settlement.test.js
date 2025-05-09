@@ -374,7 +374,6 @@ describe("Settlement Contract", function () {
       // Call deductWorkload
       await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
       await DepositCon.connect(addr1).deposit(toWei("100"))
-      const initialBalance = (await DepositCon.getUserBalance(addr1.address))[1];
 
       await SettlementCon.connect(owner).deductWorkload(
         workload, addr1.address, workers, modelId, sessionId, epochId
@@ -390,7 +389,7 @@ describe("Settlement Contract", function () {
       expect((await DepositCon.workerBalances(reporter2.address))[1]).to.equal(topPerWorker);
     });
 
-    it("Should emit WorkloadDeducted event", async function () {      
+    it("Should emit WorkloadDeducted event", async function () {
       const workload = 10;
       const modelId = 1;
       const sessionId = 123;
@@ -491,8 +490,7 @@ describe("Settlement Contract", function () {
       const manyWorkers = Array(1000).fill(reporter1.address);
       await usdtToken.connect(addr1).approve(DepositCon.address, toWei("100"))
       await DepositCon.connect(addr1).deposit(toWei("100"))
-      const initialBalance = (await DepositCon.getUserBalance(addr1.address))[1];
-      
+
       await expect(SettlementCon.connect(owner).deductWorkload(
         workload, addr1.address, manyWorkers, modelId, sessionId, epochId
       )).to.be.revertedWith("topamountperworker cannot be zero");

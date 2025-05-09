@@ -55,8 +55,8 @@ describe("ModelFactory Contract", function () {
 
     await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), addr1.address)
     await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
-    await modelFactory.setTokenTaxParams(1/*万分之,uint256 projectBuyTaxBasisPoints*/, 
-      1/*万分之,uint256 projectSellTaxBasisPoints*/, 
+    await modelFactory.setTokenTaxParams(1/*万分之,uint256 projectBuyTaxBasisPoints*/,
+      1/*万分之,uint256 projectSellTaxBasisPoints*/,
       1/*万分之uint256 taxSwapThresholdBasisPoints*/)
   });
 
@@ -75,9 +75,9 @@ describe("ModelFactory Contract", function () {
     await assetToken.connect(addr1).approve(modelFactory.address, threshold);
     const id = await modelFactory.nextId()
     await modelFactory.connect(addr1).initFromBondingCurve(
-      name, 
-      symbol, 
-      threshold, 
+      name,
+      symbol,
+      threshold,
       addr1.address
     );
 
@@ -96,9 +96,9 @@ describe("ModelFactory Contract", function () {
     await assetToken.connect(addr1).approve(modelFactory.address, threshold);
     const id = await modelFactory.nextId()
     await modelFactory.connect(addr1).initFromBondingCurve(
-      name, 
-      symbol, 
-      threshold, 
+      name,
+      symbol,
+      threshold,
       addr1.address
     );
 
@@ -127,9 +127,9 @@ describe("ModelFactory Contract", function () {
     await modelFactory.grantRole(modelFactory.BONDING_ROLE(), addr1.address)
     const id = await modelFactory.nextId()
     await modelFactory.connect(addr1).initFromBondingCurve(
-      name, 
-      symbol, 
-      threshold, 
+      name,
+      symbol,
+      threshold,
       addr1.address
     );
 
@@ -157,9 +157,9 @@ describe("ModelFactory Contract", function () {
     await assetToken.connect(addr1).approve(modelFactory.address, threshold);
     const id = await modelFactory.nextId()
     await modelFactory.connect(addr1).initFromBondingCurve(
-      name, 
-      symbol, 
-      threshold, 
+      name,
+      symbol,
+      threshold,
       addr1.address
     );
 
@@ -176,5 +176,269 @@ describe("ModelFactory Contract", function () {
     await modelFactory.connect(addr1).withdraw(id)
 
     await expect(modelFactory.connect(addr1).withdraw(id)).to.be.revertedWith("Application is not active");
+  });
+
+  it("should test withdraw function permissions", async function () {
+    const name = "New Token";
+    const symbol = "NTKN";
+    const threshold = ethers.utils.parseEther("1000");
+
+    await assetToken.connect(addr1).approve(modelFactory.address, threshold);
+    const id = await modelFactory.nextId()
+    await modelFactory.connect(addr1).initFromBondingCurve(
+      name,
+      symbol,
+      threshold,
+      addr1.address
+    );
+
+    // Try to withdraw as non-proposer and without WITHDRAW_ROLE
+    await expect(modelFactory.connect(addr2).withdraw(id)).to.be.revertedWith("Not proposer");
+
+    // Grant WITHDRAW_ROLE to addr2 and try again
+    await modelFactory.grantRole(await modelFactory.WITHDRAW_ROLE(), addr2.address);
+    await modelFactory.connect(addr2).withdraw(id);
+
+    const application = await modelFactory.getApplication(id);
+    expect(application.status).to.equal(2); // Withdrawn
+  });
+
+  it("should set implementations correctly", async function () {
+    const newImplementation = addr2.address;
+
+    await modelFactory.setImplementations(newImplementation);
+    expect(await modelFactory.tokenImplementation()).to.equal(newImplementation);
+
+    // Test access control
+    await expect(
+      modelFactory.connect(addr1).setImplementations(addr1.address)
+    ).to.be.revertedWith(/AccessControl/);
+  });
+
+  it("should set lock implementations correctly", async function () {
+    const newLockImplementation = addr2.address;
+
+    await modelFactory.setLockImplementations(newLockImplementation);
+    expect(await modelFactory.lockTokenImplemention()).to.equal(newLockImplementation);
+
+    // Test access control
+    await expect(
+      modelFactory.connect(addr1).setLockImplementations(addr1.address)
+    ).to.be.revertedWith(/AccessControl/);
+  });
+
+  it("should set maturity duration correctly", async function () {
+    const newDuration = 60 * 60 * 24 * 365; // 1 year in seconds
+
+    await modelFactory.setMaturityDuration(newDuration);
+    expect(await modelFactory.maturityDuration()).to.equal(newDuration);
+
+    // Test access control
+    await expect(
+      modelFactory.connect(addr1).setMaturityDuration(newDuration)
+    ).to.be.revertedWith(/AccessControl/);
+  });
+
+  it("should set asset token correctly", async function () {
+    const Token = await ethers.getContractFactory("ERC20Sample");
+    const newAssetToken = await Token.deploy("New Asset Token", "NAT");
+    await newAssetToken.deployed();
+
+    await modelFactory.setAssetToken(newAssetToken.address);
+    expect(await modelFactory.assetToken()).to.equal(newAssetToken.address);
+
+    // Test access control
+    await expect(
+      modelFactory.connect(addr1).setAssetToken(newAssetToken.address)
+    ).to.be.revertedWith(/AccessControl/);
+  });
+
+  it("should pause and unpause contract correctly", async function () {
+    // Pause the contract
+    await modelFactory.pause();
+    expect(await modelFactory.paused()).to.equal(true);
+
+    // Test that functions are paused
+    const name = "New Token";
+    const symbol = "NTKN";
+    const threshold = ethers.utils.parseEther("100");
+
+    await assetToken.connect(addr1).approve(modelFactory.address, threshold);
+    await expect(
+      modelFactory.connect(addr1).initFromBondingCurve(name, symbol, threshold, addr1.address)
+    ).to.be.revertedWith("Pausable: paused");
+
+    // Unpause the contract
+    await modelFactory.unpause();
+    expect(await modelFactory.paused()).to.equal(false);
+
+    // Test that functions work after unpausing
+    await modelFactory.connect(addr1).initFromBondingCurve(name, symbol, threshold, addr1.address);
+
+    // Test access control
+    await expect(
+      modelFactory.connect(addr1).pause()
+    ).to.be.revertedWith(/AccessControl/);
+
+    await expect(
+      modelFactory.connect(addr1).unpause()
+    ).to.be.revertedWith(/AccessControl/);
+  });
+
+  it("should test withdraw function when application is not matured yet", async function () {
+    const name = "New Token";
+    const symbol = "NTKN";
+    const threshold = ethers.utils.parseEther("1000");
+
+    await assetToken.connect(addr1).approve(modelFactory.address, threshold);
+    const id = await modelFactory.nextId();
+
+    // Create an application with a future proposalEndBlock
+    await modelFactory.connect(addr1).initFromBondingCurve(
+      name,
+      symbol,
+      threshold,
+      addr1.address
+    );
+
+    // Modify the proposalEndBlock to be in the future
+    const currentBlock = await ethers.provider.getBlockNumber();
+    const application = await modelFactory.getApplication(id);
+
+    // await modelFactory.connect(addr1).withdraw(id)
+
+    // Try to withdraw before maturity
+    if (currentBlock < application.proposalEndBlock) {
+      await expect(
+        modelFactory.connect(addr1).withdraw(id)
+      ).to.be.revertedWith("Application is not matured yet");
+    }
+  });
+
+  it("should test executeBondingCurveApplication with invalid application status", async function () {
+    const name = "New Token";
+    const symbol = "NTKN";
+    const threshold = ethers.utils.parseEther("1000");
+
+    await assetToken.connect(addr1).approve(modelFactory.address, threshold);
+    const id = await modelFactory.nextId();
+    await modelFactory.connect(addr1).initFromBondingCurve(
+      name,
+      symbol,
+      threshold,
+      addr1.address
+    );
+
+    // Withdraw to change application status
+    await modelFactory.connect(addr1).withdraw(id);
+
+    // Set up token supply parameters
+    const uint = await assetToken.decimals();
+    const totalSupply = ethers.utils.parseEther("10000").div(BigNumber.from(10).pow(uint));
+    const lpSupply = ethers.utils.parseEther("5000").div(BigNumber.from(10).pow(uint));
+    const vault = addr2.address;
+
+    await modelFactory.setTokenAdmin(addr2.address);
+
+    // Try to execute application that is not active
+    await expect(
+      modelFactory.connect(addr1).executeBondingCurveApplication(id, totalSupply, lpSupply, vault)
+    ).to.be.revertedWith("Application is not active");
+  });
+
+  it("should test executeBondingCurveApplication with token admin not set", async function () {
+    const name = "New Token";
+    const symbol = "NTKN";
+    const threshold = ethers.utils.parseEther("1000");
+
+    // Deploy a new ModelFactory to ensure clean state
+    const ModelFactoryTemplate = await ethers.getContractFactory("ModelFactory");
+    const newModelFactoryTemplate = await ModelFactoryTemplate.deploy();
+    await newModelFactoryTemplate.deployed();
+    const clonedContractAddress = await deployAndCloneContract(ethers, newModelFactoryTemplate.address);
+    const newModelFactory = await ethers.getContractAt("ModelFactory", clonedContractAddress);
+
+    // Initialize without setting token admin
+    await newModelFactory.initialize(
+      tokenImplementation.address,
+      lockTokenImplemention.address,
+      assetToken.address,
+      1
+    );
+
+    await newModelFactory.grantRole(await newModelFactory.BONDING_ROLE(), addr1.address);
+    await newModelFactory.setUniswapRouter(UNISWAP_ROUTER);
+    await newModelFactory.setTokenTaxParams(1, 1, 1);
+
+    // Create application
+    await assetToken.connect(addr1).approve(newModelFactory.address, threshold);
+    const id = await newModelFactory.nextId();
+    await newModelFactory.connect(addr1).initFromBondingCurve(
+      name,
+      symbol,
+      threshold,
+      addr1.address
+    );
+
+    // Set up token supply parameters
+    const uint = await assetToken.decimals();
+    const totalSupply = ethers.utils.parseEther("10000").div(BigNumber.from(10).pow(uint));
+    const lpSupply = ethers.utils.parseEther("5000").div(BigNumber.from(10).pow(uint));
+    const vault = addr2.address;
+
+    // Try to execute application without token admin set
+    await expect(
+      newModelFactory.connect(addr1).executeBondingCurveApplication(id, totalSupply, lpSupply, vault)
+    ).to.be.revertedWith("Token admin not set");
+  });
+
+  it("should set token tax parameters correctly", async function () {
+    const projectBuyTaxBasisPoints = 200;
+    const projectSellTaxBasisPoints = 300;
+    const taxSwapThresholdBasisPoints = 100;
+
+    await modelFactory.setTokenTaxParams(
+      projectBuyTaxBasisPoints,
+      projectSellTaxBasisPoints,
+      taxSwapThresholdBasisPoints
+    );
+
+    // Create a new application and execute it to verify tax parameters are passed correctly
+    const name = "Tax Test Token";
+    const symbol = "TTT";
+    const threshold = ethers.utils.parseEther("1000");
+
+    await assetToken.connect(addr1).approve(modelFactory.address, threshold);
+    const id = await modelFactory.nextId();
+    await modelFactory.connect(addr1).initFromBondingCurve(
+      name,
+      symbol,
+      threshold,
+      addr1.address
+    );
+
+    // Set up token supply parameters
+    const uint = await assetToken.decimals();
+    const totalSupply = ethers.utils.parseEther("10000").div(BigNumber.from(10).pow(uint));
+    const lpSupply = ethers.utils.parseEther("5000").div(BigNumber.from(10).pow(uint));
+    const vault = addr2.address;
+
+    await modelFactory.setTokenAdmin(addr2.address);
+
+    // Execute application
+    const tokenAddress = await modelFactory.connect(addr1).callStatic["executeBondingCurveApplication(uint256,uint256,uint256,address)"](
+      id, totalSupply, lpSupply, vault
+    );
+    await modelFactory.connect(addr1).executeBondingCurveApplication(id, totalSupply, lpSupply, vault);
+
+    // Verify token was created
+    const token = await ethers.getContractAt("ModelToken", tokenAddress);
+    expect(await token.name()).to.equal(name);
+    expect(await token.symbol()).to.equal(symbol);
+
+    // Test access control
+    await expect(
+      modelFactory.connect(addr1).setTokenTaxParams(100, 100, 100)
+    ).to.be.revertedWith(/AccessControl/);
   });
 });

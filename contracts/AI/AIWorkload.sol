@@ -21,6 +21,7 @@ contract AIWorkload is ReentrancyGuard{
         address reporter;
         address worker;
         address user;
+        uint256 inputWorload;
     }
 
     struct Session {
@@ -49,7 +50,7 @@ contract AIWorkload is ReentrancyGuard{
     //AIPay
     Settlement public settlement;
 
-    event WorkloadReported(uint256 indexed sessionId, address indexed reporter, address worker, uint256 epochId, uint256 workload, uint256 modelId);
+    event WorkloadReported(uint256 indexed sessionId, address indexed reporter, address worker, uint256 epochId, uint256 workload, uint256 modelId, uint256 inputWorload);
 
     constructor(address _nodeRegistry, address _modelRegistry, address _stakeToken, address _settlement) {
         require(_nodeRegistry != address(0), "Invalid node registry");
@@ -122,17 +123,17 @@ contract AIWorkload is ReentrancyGuard{
         uint256 modelId,
         uint256 sessionId,
         uint256 epochId,
+        uint256 inputWorkload,
         Signature[] calldata signatures
-
     ) nonReentrant external {
         require(worker != address(0), "Invalid owner address");
         require(workload > 0, "Workload must be greater than zero");
         require(signatures.length >= 3, "Length of signatures must more than 3");
         require(user != address(0), "Invalid user");
-        (uint256 tmpModelId, , , , , ,) = modelRegistry.uploadModels(modelId);
+        (uint256 tmpModelId, , , , , , ,) = modelRegistry.uploadModels(modelId);
         require(tmpModelId == modelId, "Model not exist");
 
-        require(_isValidSignature(worker, msg.sender, abi.encode(worker, user, workload, modelId, sessionId, epochId), signatures), "Invalid signature");
+        require(_isValidSignature(worker, msg.sender, abi.encode(worker, user, workload, modelId, sessionId, epochId, inputWorkload), signatures), "Invalid signature");
 
         Session storage session = sessions[sessionId];
 
@@ -144,7 +145,8 @@ contract AIWorkload is ReentrancyGuard{
             modelId: modelId,
             reporter: msg.sender,
             worker: worker,
-            user: user
+            user: user,
+            inputWorload: inputWorkload
         });
 
         WorkLoad storage workerWorkLoad = totalWorkerWorkload[worker];
@@ -160,7 +162,7 @@ contract AIWorkload is ReentrancyGuard{
         reporters.add(msg.sender);
 
         session.lastEpochId = epochId;
-        emit WorkloadReported(sessionId, msg.sender, worker, epochId, workload, modelId);
+        emit WorkloadReported(sessionId, msg.sender, worker, epochId, workload, modelId, inputWorkload);
 
         //AIPay
         address[] memory payworkers = new address[](1);
@@ -172,7 +174,8 @@ contract AIWorkload is ReentrancyGuard{
             payworkers,
             modelId,
             sessionId,
-            epochId
+            epochId,
+            inputWorkload
         );
     }
 

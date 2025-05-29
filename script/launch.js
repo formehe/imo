@@ -4,11 +4,11 @@ async function main() {
     const TOKEN_VAULT = "0x8258C2C45B4ad9bEa8AD62bf4Cfa470B3B9B2ca7"
     const ASSET_ERC20 = "0x7e5eF930DA3b4F777dA4fAfb958047A5CaAe5D8b"
     const USDT = "0xc9B4e5c5CD83EfA16bC89b49283381aD2c74710D"
-    const AIMODELS = "0xf64CDc1493a9bf3e7D47D853FB621F046e8E10F4"
+    const AIMODELS = "0x4d3aec3d99d5B1Edf2C375657d0765D960175a3b"
     const MODEL_NAME = "test3"
     
     aiModels = await ethers.getContractAt("AIModels", AIMODELS);
-    await aiModels.recordModelUpload(MODEL_NAME, "v1.0", "v1.0", 1)
+    await aiModels.recordModelUpload(MODEL_NAME, "v1.0", "v1.0", 0, 1)
 
     assetToken = await ethers.getContractAt("ERC20Sample", ASSET_ERC20);
     decimal = await assetToken.decimals();

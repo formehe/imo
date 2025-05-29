@@ -166,6 +166,7 @@ describe("Settlement Contract", function () {
       modelName,
       modelVersion,
       modelInfo,
+      0,
       modelPrice1
     );
 
@@ -173,6 +174,7 @@ describe("Settlement Contract", function () {
       "TestMode2",
       modelVersion,
       modelInfo,
+      0,
       toWei(2)
     );
 
@@ -235,8 +237,8 @@ describe("Settlement Contract", function () {
     //check the addr1 by getUserBalance
     const workload = 200;
     const content = ethers.utils.defaultAbiCoder.encode(
-      ["address", "address", "uint256", "uint256", "uint256", "uint256"],
-      [addr3.address, addr3.address, workload, 1, 1, 1]
+      ["address", "address", "uint256", "uint256", "uint256", "uint256", "uint256"],
+      [addr3.address, addr3.address, workload, 1, 1, 1, 0]
     );
 
     const signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
@@ -268,12 +270,13 @@ describe("Settlement Contract", function () {
       1,
       1,
       1,
+      0,
       signatures
     );
 
     await expect(tx)
       .to.emit(aiWorkload, "WorkloadReported")
-      .withArgs(1, addr1.address, addr3.address, 1, workload, 1);
+      .withArgs(1, addr1.address, addr3.address, 1, workload, 1, 0);
 
     const totalWorkload = await aiWorkload.getTotalWorkerWorkload(
       addr3.address
@@ -305,7 +308,8 @@ describe("Settlement Contract", function () {
       [addr1.address],
       1,
       1,
-      3
+      3,
+      0
     );
 
     await tx.wait();
@@ -355,7 +359,7 @@ describe("Settlement Contract", function () {
       
       // Call deductWorkload
       await SettlementCon.connect(owner).deductWorkload(
-        workload, addr1.address, workers, modelId, sessionId, epochId
+        workload, addr1.address, workers, modelId, sessionId, epochId, 0
       );
       
       // Check user balance is reduced
@@ -376,7 +380,7 @@ describe("Settlement Contract", function () {
       await DepositCon.connect(addr1).deposit(toWei("100"))
 
       await SettlementCon.connect(owner).deductWorkload(
-        workload, addr1.address, workers, modelId, sessionId, epochId
+        workload, addr1.address, workers, modelId, sessionId, epochId, 0
       );
       
       // Calculate expected TOP amount per worker
@@ -401,10 +405,10 @@ describe("Settlement Contract", function () {
       const initialBalance = (await DepositCon.getUserBalance(addr1.address))[1];
       
       await expect(SettlementCon.connect(owner).deductWorkload(
-        workload, addr1.address, workers, modelId, sessionId, epochId
+        workload, addr1.address, workers, modelId, sessionId, epochId, 0
       ))
         .to.emit(SettlementCon, "WorkloadDeducted")
-        .withArgs(workload, addr1.address, workers, modelId, sessionId, epochId, true);
+        .withArgs(workload, addr1.address, workers, modelId, sessionId, epochId, true, 0);
     });
 
     it("Should revert if called by non-owner", async function () {     
@@ -415,7 +419,7 @@ describe("Settlement Contract", function () {
       const workers = [reporter1.address, reporter2.address];
       
       await expect(SettlementCon.connect(owner).deductWorkload(
-        workload, addr1.address, workers, modelId, sessionId, epochId
+        workload, addr1.address, workers, modelId, sessionId, epochId, 0
       )).to.be.reverted;
     });
 
@@ -431,8 +435,8 @@ describe("Settlement Contract", function () {
       await DepositCon.connect(addr2).deposit(100)
       
       await expect(SettlementCon.connect(owner).deductWorkload(
-        workload, addr2.address, workers, modelId, sessionId, epochId
-      )).to.emit(SettlementCon, "WorkloadDeducted").withArgs(workload, addr2.address, workers, modelId, sessionId, epochId, false);
+        workload, addr2.address, workers, modelId, sessionId, epochId, 0
+      )).to.emit(SettlementCon, "WorkloadDeducted").withArgs(workload, addr2.address, workers, modelId, sessionId, epochId, false, 0);
     });
 
     it("Should revert if model does not exist", async function () {
@@ -444,7 +448,7 @@ describe("Settlement Contract", function () {
       const workers = [reporter1.address, reporter2.address];
       
       await expect(SettlementCon.connect(owner).deductWorkload(
-        workload, addr1.address, workers, nonExistentModelId, sessionId, epochId
+        workload, addr1.address, workers, nonExistentModelId, sessionId, epochId, 0
       )).to.be.revertedWith("Model does not exist");
     });
 
@@ -457,7 +461,7 @@ describe("Settlement Contract", function () {
       const workers = [reporter1.address, reporter2.address];
       
       await expect(SettlementCon.connect(owner).deductWorkload(
-        workload, addr1.address, workers, zeroModelId, sessionId, epochId
+        workload, addr1.address, workers, zeroModelId, sessionId, epochId, 0
       )).to.be.revertedWith("Model does not exist");
     });
 
@@ -475,7 +479,7 @@ describe("Settlement Contract", function () {
       await DepositCon.connect(addr1).deposit(toWei("100"))
 
       await expect(SettlementCon.connect(owner).deductWorkload(
-        workload, addr1.address, workers, modelId, sessionId, epochId
+        workload, addr1.address, workers, modelId, sessionId, epochId, 0
       )).to.be.revertedWith("topamount cannot be zero");
     });
 
@@ -492,7 +496,7 @@ describe("Settlement Contract", function () {
       await DepositCon.connect(addr1).deposit(toWei("100"))
 
       await expect(SettlementCon.connect(owner).deductWorkload(
-        workload, addr1.address, manyWorkers, modelId, sessionId, epochId
+        workload, addr1.address, manyWorkers, modelId, sessionId, epochId, 0
       )).to.be.revertedWith("topamountperworker cannot be zero");
     });
 
@@ -510,7 +514,7 @@ describe("Settlement Contract", function () {
       
       // Call deductWorkload
       await SettlementCon.connect(owner).deductWorkload(
-        workload, addr1.address, workers, modelId, sessionId, epochId
+        workload, addr1.address, workers, modelId, sessionId, epochId, 0
       );
       
       // Check user balance is reduced according to higher price
@@ -535,7 +539,7 @@ describe("Settlement Contract", function () {
       
       // Call deductWorkload
       await SettlementCon.connect(owner).deductWorkload(
-        workload, addr1.address, workers, modelId, sessionId, epochId
+        workload, addr1.address, workers, modelId, sessionId, epochId, 0
       );
       
       // Calculate expected TOP amount per worker with new rate
@@ -560,7 +564,7 @@ describe("Settlement Contract", function () {
 
       // Call deductWorkload
       await SettlementCon.connect(owner).deductWorkload(
-        workload, addr1.address, workers, modelId, sessionId, epochId
+        workload, addr1.address, workers, modelId, sessionId, epochId, 0
       );
       
       // Calculate expected TOP amount per worker

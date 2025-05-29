@@ -69,9 +69,12 @@ contract Settlement is AccessControl {
         address[] memory worker,
         uint256 modelId,
         uint256 sessionId,
-        uint256 epochId
+        uint256 epochId,
+        uint256 inputWorkLoad
     ) external onlyRole(OPERATOR_ROLE) {
-        uint256 needReserveU = _calculatePrice(workload,modelId) ;
+        uint256 needReserveU = _calculatePrice(workload, modelId, false);
+        needReserveU = needReserveU + _calculatePrice(inputWorkLoad, modelId, true);
+        require(needReserveU > 0, "Invalid reserve");
 
         // current user balance
         bool enough = true;
@@ -97,7 +100,7 @@ contract Settlement is AccessControl {
         uint256 topamountperworker = topamount / worker.length;
 
         depositContract.updateUserBalance(user,previousBalance - needReserveU);
-        emit WorkloadDeducted(workload, user, worker, modelId, sessionId, epochId, enough);
+        emit WorkloadDeducted(workload, user, worker, modelId, sessionId, epochId, enough, inputWorkLoad);
 
         require(topamountperworker != 0, "topamountperworker cannot be zero");
         for (uint256 i = 0; i < worker.length; i++) {
@@ -112,14 +115,17 @@ contract Settlement is AccessControl {
         uint256 modelId,
         uint256 sessionId,
         uint256 epochId,
-        bool    enough
+        bool    enough,
+        uint256 inputWorkload
     );
 
-    function _calculatePrice(uint256 workload, uint256 modelId) internal view returns (uint256) {
-        (, , , address modelAddress, , , uint256 price ) = aimodelContract.uploadModels(modelId);
+    function _calculatePrice(uint256 workload, uint256 modelId, bool isInputPrice) internal view returns (uint256) {
+        (, , , address modelAddress, , , uint256 inTokenPrice, uint256 outTokenPrice ) = aimodelContract.uploadModels(modelId);
         require(modelAddress != address(0), "Model does not exist");
-        require(price != 0, "Model price cannot be zero");
-
-        return price * workload;
+        if (isInputPrice) {
+            return inTokenPrice * workload;
+        } else {
+            return outTokenPrice * workload;
+        }
     }
 }

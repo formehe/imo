@@ -133,6 +133,7 @@ describe("AIWorkload", function () {
       modelName,
       modelVersion,
       modelInfo,
+      0,
       1
     );
 
@@ -208,7 +209,8 @@ describe("AIWorkload", function () {
             1,
             1,
             1,
-            []
+            0,
+            [],
           )
       ).to.be.revertedWith("Invalid owner address");
     });
@@ -217,7 +219,7 @@ describe("AIWorkload", function () {
       await expect(
         aiWorkload
           .connect(reporter1)
-          .reportWorkload(owner.address, addr3.address, 0, 1, 1, 1, [])
+          .reportWorkload(owner.address, addr3.address, 0, 1, 1, 1, 0, [])
       ).to.be.revertedWith("Workload must be greater than zero");
     });
 
@@ -233,6 +235,7 @@ describe("AIWorkload", function () {
             1,
             1,
             1,
+            0,
             signatures
           )
       ).to.be.revertedWith("Length of signatures must more than 3");
@@ -242,8 +245,8 @@ describe("AIWorkload", function () {
       await nodesRegistry.registerProxyNode(addr1.address);
       const workload = 200;
       const content = ethers.utils.defaultAbiCoder.encode(
-        ["address", "address", "uint256", "uint256", "uint256", "uint256"],
-        [addr3.address, addr3.address, workload, 1, 1, 1]
+        ["address", "address", "uint256", "uint256", "uint256", "uint256", "uint256"],
+        [addr3.address, addr3.address, workload, 1, 1, 1, 0]
       );
 
       const signature1 = await addr1.signMessage(
@@ -287,6 +290,7 @@ describe("AIWorkload", function () {
           1,
           1,
           1,
+          0,
           signatures
         )).to.be.revertedWith("Invalid user")
 
@@ -299,6 +303,7 @@ describe("AIWorkload", function () {
           100,
           1,
           1,
+          0,
           signatures
         )).to.be.revertedWith("Model not exist")
 
@@ -311,13 +316,14 @@ describe("AIWorkload", function () {
           1,
           1,
           1,
+          0,
           signatures
         );
 
       const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
       await expect(tx)
         .to.emit(aiWorkload, "WorkloadReported")
-        .withArgs(1, addr1.address, addr3.address, 1, workload, 1);
+        .withArgs(1, addr1.address, addr3.address, 1, workload, 1, 0);
 
       const totalWorkload = await aiWorkload.getTotalWorkerWorkload(
         addr3.address
@@ -337,8 +343,8 @@ describe("AIWorkload", function () {
       let workload = 200;
       let epochId = 3;
       let content = ethers.utils.defaultAbiCoder.encode(
-        ["address", "address", "uint256", "uint256", "uint256", "uint256"],
-        [addr3.address, addr3.address, workload, 1, 1, epochId]
+        ["address", "address", "uint256", "uint256", "uint256", "uint256", "uint256"],
+        [addr3.address, addr3.address, workload, 1, 1, epochId, 0]
       );
       let signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
       let signature2 = await addr2.signMessage(ethers.utils.arrayify(content));
@@ -373,14 +379,15 @@ describe("AIWorkload", function () {
           1,
           1,
           epochId,
+          0,
           signatures
         );
 
       workload = 200;
       epochId = 2;
       content = ethers.utils.defaultAbiCoder.encode(
-        ["address", "address", "uint256", "uint256", "uint256", "uint256"],
-        [addr3.address, addr3.address, workload, 1, 1, epochId]
+        ["address", "address", "uint256", "uint256", "uint256", "uint256", "uint256"],
+        [addr3.address, addr3.address, workload, 1, 1, epochId, 0]
       );
       signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
       signature2 = await addr2.signMessage(ethers.utils.arrayify(content));
@@ -416,6 +423,7 @@ describe("AIWorkload", function () {
             1,
             1,
             epochId,
+            0,
             signatures
           )
       ).to.be.revertedWith("Epoch out of order");
@@ -425,8 +433,8 @@ describe("AIWorkload", function () {
       await nodesRegistry.registerProxyNode(addr1.address);
       const workload = 200;
       const content = ethers.utils.defaultAbiCoder.encode(
-        ["address", "address", "uint256", "uint256", "uint256", "uint256"],
-        [owner.address, addr3.address, workload, 1, 1, 1]
+        ["address", "address", "uint256", "uint256", "uint256", "uint256", "uint256"],
+        [owner.address, addr3.address, workload, 1, 1, 1, 0]
       );
 
       const signature1 = await reporter1.signMessage(
@@ -470,6 +478,7 @@ describe("AIWorkload", function () {
             1,
             1,
             1,
+            0,
             signatures
           )
       ).to.be.revertedWith("Invalid signature");
@@ -480,8 +489,8 @@ describe("AIWorkload", function () {
       await nodesRegistry.registerProxyNode(addr2.address);
       const workload = 200;
       let content = ethers.utils.defaultAbiCoder.encode(
-        ["address", "address", "uint256", "uint256", "uint256", "uint256"],
-        [addr3.address, addr3.address, workload, 1, 1, 1]
+        ["address", "address", "uint256", "uint256", "uint256", "uint256", "uint256"],
+        [addr3.address, addr3.address, workload, 1, 1, 1, 0]
       );
 
       let signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
@@ -515,13 +524,14 @@ describe("AIWorkload", function () {
             1,
             1,
             1,
+            0,
             signatures
           )
       ).to.be.revertedWith("Invalid signature");
 
       content = ethers.utils.defaultAbiCoder.encode(
-        ["address", "address", "uint256", "uint256", "uint256", "uint256"],
-        [addr1.address, addr3.address, workload, 1, 1, 1]
+        ["address", "address", "uint256", "uint256", "uint256", "uint256", "uint256"],
+        [addr1.address, addr3.address, workload, 1, 1, 1, 0]
       );
 
       signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
@@ -558,6 +568,7 @@ describe("AIWorkload", function () {
             1,
             1,
             1,
+            0,
             signatures
           )
       ).to.be.revertedWith("Invalid signature");
@@ -571,6 +582,7 @@ describe("AIWorkload", function () {
           1,
           1,
           1,
+          0,
           signatures
         );
     });
@@ -580,8 +592,8 @@ describe("AIWorkload", function () {
     it("Should calculate recent workload correctly", async function () {
       await nodesRegistry.registerProxyNode(addr1.address);
       let content = ethers.utils.defaultAbiCoder.encode(
-        ["address", "address", "uint256", "uint256", "uint256", "uint256"],
-        [addr3.address, addr3.address, 100, 1, 1, 1]
+        ["address", "address", "uint256", "uint256", "uint256", "uint256", "uint256"],
+        [addr3.address, addr3.address, 100, 1, 1, 1, 0]
       );
 
       let signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
@@ -610,15 +622,15 @@ describe("AIWorkload", function () {
       await DepositCon.connect(addr3).deposit(toWei("200"));
       await aiWorkload
         .connect(addr1)
-        .reportWorkload(addr3.address, addr3.address, 100, 1, 1, 1, signatures);
+        .reportWorkload(addr3.address, addr3.address, 100, 1, 1, 1, 0, signatures);
 
       await ethers.provider.send("evm_increaseTime", [60 * 60 * 24]); // Advance 1 day
       await ethers.provider.send("evm_mine");
 
       // const timestamp2 = (await ethers.provider.getBlock("latest")).timestamp;
       content = ethers.utils.defaultAbiCoder.encode(
-        ["address", "address", "uint256", "uint256", "uint256", "uint256"],
-        [addr3.address, addr3.address, 200, 1, 1, 2]
+        ["address", "address", "uint256", "uint256", "uint256", "uint256", "uint256"],
+        [addr3.address, addr3.address, 200, 1, 1, 2, 0]
       );
 
       signature1 = await addr1.signMessage(ethers.utils.arrayify(content));
@@ -647,7 +659,7 @@ describe("AIWorkload", function () {
       await DepositCon.connect(addr3).deposit(toWei("200"));
       await aiWorkload
         .connect(addr1)
-        .reportWorkload(addr3.address, addr3.address, 200, 1, 1, 2, signatures);
+        .reportWorkload(addr3.address, addr3.address, 200, 1, 1, 2, 0, signatures);
 
       const recentWorkload = await aiWorkload.getTotalWorkerWorkload(
         addr3.address

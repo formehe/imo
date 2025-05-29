@@ -15,7 +15,7 @@ contract AIModels {
     mapping(uint256 => address[]) public modelDistribution;
     mapping(address => uint256[]) public nodeDeployment;
 
-    event UploadModeled(uint256 indexed modelId, address indexed uploader, string modelName, string modelVersion, string modelInfo, uint256 price);
+    event UploadModeled(uint256 indexed modelId, address indexed uploader, string modelName, string modelVersion, string modelInfo, uint256 inPrice, uint256 outPrice);
     event ModelDeployed(address indexed node, uint256 indexed modelId);
     event ModelRemoved(address indexed node, uint256 indexed modelId);
 
@@ -30,7 +30,8 @@ contract AIModels {
         string calldata modelName,
         string calldata modelVersion,
         string calldata modelExtendInfo,
-        uint256         price
+        uint256         inTokenPrice,
+        uint256         outTokenPrice
     ) external returns(uint256 modelId) {
         string memory model = _modelId(modelName, modelVersion);
         require(modelIds[model] == 0, "Model exist");
@@ -42,7 +43,8 @@ contract AIModels {
             uploader: msg.sender,
             extendInfo: modelExtendInfo,
             timestamp : block.timestamp,
-            price : price
+            inTokenPrice : inTokenPrice,
+            outTokenPrice: outTokenPrice
         });
 
         modelIds[model] = nextModelId;
@@ -51,7 +53,7 @@ contract AIModels {
             modelOwns[modelName] = msg.sender;
         }
 
-        emit UploadModeled(nextModelId, msg.sender, modelName, modelVersion, modelExtendInfo, price);
+        emit UploadModeled(nextModelId, msg.sender, modelName, modelVersion, modelExtendInfo, inTokenPrice, outTokenPrice);
         modelId = nextModelId;
         nextModelId++;
     }

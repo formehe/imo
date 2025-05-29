@@ -157,6 +157,7 @@ describe("Deposit Contract", function () {
       modelName,
       modelVersion,
       modelInfo,
+      0,
       1
     );
 

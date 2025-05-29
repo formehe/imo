@@ -5,9 +5,9 @@ async function main() {
   [owner] = await ethers.getSigners();
 
   // const AIworkloadCon = "0xE77935C5c3D1110e7626C48d086Ec3F224D730c1";
-  const assetManagement = "0x1582D0d87D3518216b7A780b2e452fdf81BA338F";
-  const nodesRegistry = "0xDee66F4500079041Fe2A795d9ADab04aFf9b04e8";
-  const aiModelUpload = "0xf64CDc1493a9bf3e7D47D853FB621F046e8E10F4";
+  const assetManagement = "0xBF92451984eC894D10256e2cc43965756325f9D6";
+  const nodesRegistry = "0xF8363849557eAD01dF37513BDd3693BCEe057aD5";
+  const aiModelUpload = "0x4d3aec3d99d5B1Edf2C375657d0765D960175a3b";
   const usdtToken = "0xc9B4e5c5CD83EfA16bC89b49283381aD2c74710D";
   const topToken = "0x7e5eF930DA3b4F777dA4fAfb958047A5CaAe5D8b";
 

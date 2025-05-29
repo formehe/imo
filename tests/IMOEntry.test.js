@@ -155,7 +155,7 @@ describe("IMOEntry Contract", function () {
     amount = ethers.BigNumber.from(10).pow(decimal).mul(1000)
     await assetToken.transfer(addr1.address, amount);
     
-    await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 1)
+    await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 0, 1)
     await expect(imoEntry.connect(addr1).launch("model1", "TT", "Test Description", 2)).
       to.be.revertedWith("Purchase amount must be greater than fee")
     await expect(imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.BigNumber.from(10).pow(decimal).mul(2))).
@@ -174,7 +174,7 @@ describe("IMOEntry Contract", function () {
     await assetToken.transfer(addr1.address,  amount1);
     await assetToken.connect(addr1).approve(imoEntry.address,  amount1);
 
-    await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 1)
+    await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 0, 1)
     await expect(imoEntry.connect(admin).launch("model1", "TT", "Test Description",  amount2)).to.be.revertedWith("Model is not exist or model not your's")
     const tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description",  amount2);
     await tx.wait();
@@ -197,7 +197,7 @@ describe("IMOEntry Contract", function () {
     await assetToken.transfer(admin.address, amount1);
     await assetToken.connect(addr1).approve(imoEntry.address, amount1);
 
-    await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 1)
+    await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 0, 1)
     let tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.BigNumber.from(10).pow(decimal).mul(500));
     await tx.wait();
 
@@ -294,7 +294,7 @@ describe("IMOEntry Contract", function () {
     await assetToken.transfer(admin.address, amount1);
     await assetToken.connect(addr1).approve(imoEntry.address, amount1);
 
-    await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 1)
+    await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 0, 1)
     let tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.BigNumber.from(10).pow(decimal).mul(500));
     await tx.wait();
 

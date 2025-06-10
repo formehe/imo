@@ -75,7 +75,7 @@ function getAddressByName(name) {
 async function main() {
     [owner] = await ethers.getSigners();
 
-    const TAX_VAULT = "";
+    const TAX_VAULT = "0xF2EB27C06F8A4C72710765E29923Ea9b21Dea912";
     const UNISWAP_ROUTER = "0x626459cF9438259ed0812D71650568306486CB00";
     const AI_MODELS = "0xf64CDc1493a9bf3e7D47D853FB621F046e8E10F4";
     const BUY_TAX = 1; //%, internal swap tax
@@ -290,11 +290,11 @@ async function main() {
         await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
         await modelFactory.setTokenAdmin(tokenAdmin)
         await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
-        await modelFactory.setTokenTaxParams(0, 0, 0) // set extra external swap tax
+        await modelFactory.setTokenTaxParams(100, 100, 0) // set extra external swap tax, unit is %oo
         await modelFactory.setMaturityDuration(MATURITY_DURATION) //set 10 years of initial asset lock time
     }
 
-    const taxVault = await ethers.getContractAt("TaxVault", contract)
+    const taxVault = await ethers.getContractAt("TaxVault", TAX_VAULT)
     await taxVault.setReedm(redeem.address)
 
     // configure IMOEntry

@@ -70,8 +70,10 @@ contract Deposit is AccessControl, ReentrancyGuard {
     // Update user's current balance (only IMO role)
     function updateUserBalance(address _user, uint256 _newBalance) external onlyRole(IMO_ROLE) {
         require(_user != address(0), "Invalid user address");
+        uint256 oldBalance = userBalances[_user].currentBalance;
+        require(_newBalance <= oldBalance, "Invalid balance update");
         userBalances[_user].currentBalance = _newBalance;
-        emit UserBalanceUpdated(_user, _newBalance,false,userBalances[_user].currentBalance );
+        emit UserBalanceUpdated(_user, oldBalance - _newBalance, false, userBalances[_user].currentBalance);
     }
 
     // Get user's balance info

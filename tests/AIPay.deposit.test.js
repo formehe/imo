@@ -431,6 +431,9 @@ describe("Deposit Contract", function () {
         owner.address
       );
 
+      const amount1 = ethers.utils.parseEther("600");
+      await usdtToken.connect(addr1).approve(DepositCon.address, amount1)
+      await DepositCon.connect(addr1).deposit(amount1);
       await DepositCon.connect(owner).updateUserBalance(addr1.address, newBalance);
       
       const userBalance = await DepositCon.getUserBalance(addr1.address);
@@ -447,9 +450,14 @@ describe("Deposit Contract", function () {
         MINTER_ROLE,
         owner.address
       );
+
+      const amount1 = ethers.utils.parseEther("600");
+      await usdtToken.connect(addr1).approve(DepositCon.address, amount1)
+      await DepositCon.connect(addr1).deposit(amount1);
+
       await expect(DepositCon.connect(owner).updateUserBalance(addr1.address, newBalance))
         .to.emit(DepositCon, "UserBalanceUpdated")
-        .withArgs(addr1.address, newBalance, false, newBalance);
+        .withArgs(addr1.address, amount1.sub(newBalance), false, newBalance);
     });
 
     it("Should revert if called by non-IMO_ROLE account", async function () {

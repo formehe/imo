@@ -11,6 +11,8 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "./IModelFactory.sol";
 import "./IModelToken.sol";
 import "./IModelLockToken.sol";
+import "./IStaking.sol";
+import "./IReward.sol";
 
 contract ModelFactory is
     IModelFactory,
@@ -23,7 +25,9 @@ contract ModelFactory is
     uint256 public nextId;
     address public tokenImplementation;
     address public lockTokenImplemention;
-
+    address public rewardTokenImplementation; // Unused in this version
+    address public stakeTokenImplementation; // Unused in this version
+    address public platformOperator; // Unused in this version
     address[] public allTokens;
 
     address public assetToken; // Base currency
@@ -54,6 +58,8 @@ contract ModelFactory is
         address token;
         address lp;
         address lockToken;
+        address rewardToken;
+        address stakeToken;
     }
 
     mapping(uint256 => Application) private _applications;
@@ -92,6 +98,9 @@ contract ModelFactory is
     function initialize(
         address tokenImplementation_,
         address lockTokenImplemention_,
+        address rewardTokenImplementation_,
+        address stakeTokenImplementation_,
+        address platformOperator_,
         address assetToken_,
         uint256 nextId_
     ) public initializer {
@@ -99,6 +108,9 @@ contract ModelFactory is
 
         tokenImplementation = tokenImplementation_;
         lockTokenImplemention = lockTokenImplemention_;
+        rewardTokenImplementation = rewardTokenImplementation_;
+        stakeTokenImplementation = stakeTokenImplementation_;
+        platformOperator = platformOperator_;
         assetToken = assetToken_;
         nextId = nextId_;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -158,12 +170,15 @@ contract ModelFactory is
         application.withdrawableAmount = 0;
         application.status = ApplicationStatus.Executed;
 
+        // step0
+        (address stakeToken, address rewardToken) = _createStakeAndRewardToken(application.proposer);
+
         // step1
         bytes memory tokenTaxParams = abi.encode(
             _projectBuyTaxBasisPoints,
             _projectSellTaxBasisPoints,
             _taxSwapThresholdBasisPoints,
-            application.proposer
+            rewardToken
         );
 
         address token = _createNewModelToken(
@@ -198,6 +213,8 @@ contract ModelFactory is
         application.token = token;
         application.lockToken = lockToken;
         application.lp = lp;
+        application.stakeToken = stakeToken;
+        application.rewardToken = rewardToken;
 
         emit NewPersona(token, lp);
     }
@@ -239,6 +256,26 @@ contract ModelFactory is
 
         allTokens.push(instance);
         return instance;
+    }
+
+    function _createStakeAndRewardToken(
+        address provider
+    ) internal returns (address stakeToken, address rewardToken) {
+        stakeToken = Clones.clone(stakeTokenImplementation);
+        rewardToken = Clones.clone(rewardTokenImplementation);
+        IStaking(stakeToken).initialize(
+            assetToken,
+            rewardToken,
+            provider,
+            platformOperator
+        );
+
+        IReward(rewardToken).initialize(
+            assetToken,
+            stakeToken
+        );
+        
+        return (stakeToken, rewardToken);
     }
 
     function setImplementations(

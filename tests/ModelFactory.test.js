@@ -14,7 +14,7 @@ describe("ModelFactory Contract", function () {
   let initialLockAmount = ethers.utils.parseEther("1000");
 
   beforeEach(async function () {
-    [owner, addr1, addr2] = await ethers.getSigners();
+    [owner, addr1, addr2, addr3] = await ethers.getSigners();
 
     const { factory, router, weth9 } = await UniswapV2Deployer.deploy(owner);
     UNISWAP_ROUTER = router.address;
@@ -25,6 +25,7 @@ describe("ModelFactory Contract", function () {
 
     await assetToken.transfer(addr1.address, initialLockAmount);
     await assetToken.transfer(addr2.address, initialLockAmount);
+    await assetToken.transfer(addr3.address, initialLockAmount);
 
     const ModelTokenTemplate = await ethers.getContractFactory("ModelToken");
     modelTokenTemplate = await ModelTokenTemplate.deploy();
@@ -38,6 +39,18 @@ describe("ModelFactory Contract", function () {
     clonedContractAddress = await deployAndCloneContract(ethers, modelLockTokenTemplate.address);
     lockTokenImplemention = await ethers.getContractAt("ModelLockToken", clonedContractAddress);
 
+    const StakingTemplate = await ethers.getContractFactory("Staking");
+    stakingTemplate = await StakingTemplate.deploy();
+    await stakingTemplate.deployed();
+    clonedContractAddress = await deployAndCloneContract(ethers, stakingTemplate.address);
+    stakingImplemention = await ethers.getContractAt("Staking", clonedContractAddress);
+
+    const RewardTemplate = await ethers.getContractFactory("Reward");
+    rewardTemplate = await RewardTemplate.deploy();
+    await rewardTemplate.deployed();
+    clonedContractAddress = await deployAndCloneContract(ethers, rewardTemplate.address);
+    rewardImplemention = await ethers.getContractAt("Reward", clonedContractAddress);
+
     // 部署 ModelFactory 合约
     const ModelFactoryTemplate = await ethers.getContractFactory("ModelFactory");
     modelFactoryTemplate = await ModelFactoryTemplate.deploy();
@@ -49,6 +62,9 @@ describe("ModelFactory Contract", function () {
     await modelFactory.initialize(
       tokenImplementation.address,
       lockTokenImplemention.address,
+      rewardImplemention.address,
+      stakingImplemention.address,
+      owner.address,
       assetToken.address,
       1 // 初始 ID 为 1
     );
@@ -65,6 +81,8 @@ describe("ModelFactory Contract", function () {
     expect(await modelFactory.lockTokenImplemention()).to.equal(lockTokenImplemention.address);
     expect(await modelFactory.assetToken()).to.equal(assetToken.address);
     expect(await modelFactory.nextId()).to.equal(1);
+    expect(await modelFactory.rewardTokenImplementation()).to.equal(rewardImplemention.address);
+    expect(await modelFactory.stakeTokenImplementation()).to.equal(stakingImplemention.address);
   });
 
   it("should allow user to create new application", async function () {
@@ -362,6 +380,9 @@ describe("ModelFactory Contract", function () {
     await newModelFactory.initialize(
       tokenImplementation.address,
       lockTokenImplemention.address,
+      rewardImplemention.address,
+      stakingImplemention.address,
+      owner.address,
       assetToken.address,
       1
     );
@@ -440,5 +461,49 @@ describe("ModelFactory Contract", function () {
     await expect(
       modelFactory.connect(addr1).setTokenTaxParams(100, 100, 100)
     ).to.be.revertedWith(/AccessControl/);
+
+    const application = await modelFactory.getApplication(id);
+    stakeToken = await ethers.getContractAt("Staking", application.stakeToken);
+    rewardToken = await ethers.getContractAt("Reward", application.rewardToken);
+    await assetToken.connect(addr2).approve(application.stakeToken, 1000);
+    await stakeToken.connect(addr2).stake(1000);
+    expect(await stakeToken.getStaked(addr2.address)).to.equal(1000);
+    await stakeToken.connect(addr2).withdraw(1000);
+    expect(await stakeToken.getStaked(addr2.address)).to.equal(0);
+
+    await assetToken.connect(addr2).approve(application.stakeToken, 1000);
+    await stakeToken.connect(addr2).stake(1000);
+    await assetToken.connect(addr2).transfer(rewardToken.address, 1000);
+    await expect(rewardToken.connect(addr2).distributeReward(addr2.address, 1000)).to.be.revertedWith("Ownable: caller is not the owner");
+    balance = await assetToken.balanceOf(addr2.address);
+    await ethers.provider.send("evm_increaseTime", [86400 + 1]);
+    await stakeToken.connect(addr2).claimReward();
+    expect(await assetToken.balanceOf(addr2.address)).to.equal(balance.add(500)); // Assuming 500 is the reward amount distributed
+
+    await assetToken.connect(addr2).approve(application.stakeToken, 4000);
+    await stakeToken.connect(addr2).stake(1000);
+    await assetToken.connect(addr2).transfer(rewardToken.address, 1000);
+    await stakeToken.connect(addr2).stake(1000);
+    await assetToken.connect(addr2).transfer(rewardToken.address, 1000);
+    await stakeToken.connect(addr2).stake(1000);
+    await assetToken.connect(addr2).transfer(rewardToken.address, 1000);
+    await ethers.provider.send("evm_increaseTime", [86400 + 1]);
+
+    await assetToken.connect(addr3).approve(application.stakeToken, 4000);
+    await stakeToken.connect(addr3).stake(1000);
+    await assetToken.connect(addr3).transfer(rewardToken.address, 1000);
+    await ethers.provider.send("evm_increaseTime", [86400 + 1]);
+
+    balance = await assetToken.balanceOf(owner.address);
+    await stakeToken.connect(owner).claimReward();
+    expect(await assetToken.balanceOf(owner.address)).to.equal(balance.add(1000));
+
+    balance = await assetToken.balanceOf(addr2.address);
+    await stakeToken.connect(addr2).claimReward();
+    expect(await assetToken.balanceOf(addr2.address)).to.equal(balance.add(1899));
+
+    balance = await assetToken.balanceOf(addr3.address);
+    await stakeToken.connect(addr3).claimReward();
+    expect(await assetToken.balanceOf(addr3.address)).to.equal(balance.add(100));
   });
 });

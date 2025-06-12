@@ -28,6 +28,8 @@ let   deployedContracts = [
     {name: "IMOEntry", address: "0xd0f82eb271Ab78B76A669eD1288041495249A768"},
     {name: "TokenVault", address: "0x8258C2C45B4ad9bEa8AD62bf4Cfa470B3B9B2ca7"},
     {name: "Redeem", address: "0x28425f2Bd5Fb311E29FE693Fe1dEC893D61a8F6c"},
+    {name: "Staking", address: "0x28425f2Bd5Fb311E29FE693Fe1dEC893D61a8F6c"},
+    {name: "Reward", address: "0x28425f2Bd5Fb311E29FE693Fe1dEC893D61a8F6c"},
 ]
 
 async function deployWithRetry(factory, retries = 5, delay = 5000) {
@@ -81,8 +83,9 @@ async function main() {
     const BUY_TAX = 1; //%, internal swap tax
     const SELL_TAX = 1; //%, internal swap tax
     const MATURITY_DURATION = 315360000;// 10 years
-    let   assetAddress;
+    let   assetAddress = "0x7e5eF930DA3b4F777dA4fAfb958047A5CaAe5D8b";
     let   tokenAdmin = owner.address;
+    let   platformOperator = owner.address;
 
     //address taxVault_ = //
 
@@ -92,7 +95,6 @@ async function main() {
     // await erc20Sample.deployed();
     // console.log("ERC20Sample is :", erc20Sample.address)
     // console.log("Transaction hash :", erc20Sample.deployTransaction.hash)
-    assetAddress = "0x7e5eF930DA3b4F777dA4fAfb958047A5CaAe5D8b"
 
     const proxyAdmin = await (async () => {
         contract = getAddressByName("ProxyAdmin")
@@ -162,6 +164,9 @@ async function main() {
             console.log("ModelToken is :", proxyAddress)
             const modelToken = await ethers.getContractAt("ModelToken", proxyAddress);
             return modelToken
+        } else {
+            const modelToken = await ethers.getContractAt("ModelToken", contract);
+            return modelToken
         }
     })()
 
@@ -176,6 +181,43 @@ async function main() {
             console.log("ModelLockToken is :", proxyAddress)
             const modelLockToken = await ethers.getContractAt("ModelLockToken", proxyAddress);
             return modelLockToken
+        } else {
+            const modelLockToken = await ethers.getContractAt("ModelLockToken", contract);
+            return modelLockToken
+        }
+    })()
+
+    const stakingToken = await (async () => {
+        contract = getAddressByName("Staking")
+        const StakingTemplate = await ethers.getContractFactory("Staking");
+        stakingTemplate = await deployWithRetry(StakingTemplate)
+        console.log("Staking is :", stakingTemplate.address)
+
+        if (contract === "0x") {
+            const proxyAddress = await deployAndCloneContract(ethers, stakingTemplate.address)
+            console.log("Staking is :", proxyAddress)
+            const stakingToken = await ethers.getContractAt("Staking", proxyAddress);
+            return stakingToken
+        } else {
+            const stakingToken = await ethers.getContractAt("Staking", contract);
+            return stakingToken
+        }
+    })()
+
+    const rewardToken = await (async () => {
+        contract = getAddressByName("Reward")
+        const RewardTemplate = await ethers.getContractFactory("Reward");
+        rewardTemplate = await deployWithRetry(RewardTemplate)
+        console.log("Reward is :", rewardTemplate.address)
+
+        if (contract === "0x") {
+            const proxyAddress = await deployAndCloneContract(ethers, rewardTemplate.address)
+            console.log("Reward is :", proxyAddress)
+            const rewardToken = await ethers.getContractAt("Reward", proxyAddress);
+            return rewardToken
+        } else {
+            const rewardToken = await ethers.getContractAt("Reward", contract);
+            return rewardToken
         }
     })()
 
@@ -286,7 +328,7 @@ async function main() {
     contract = getAddressByName("ModelFactory")
     if (contract === "0x") {
         console.log("ModelFactory")
-        await modelFactory.initialize(modelToken.address, modelLockToken.address, assetAddress, 1/* next id */)
+        await modelFactory.initialize(modelToken.address, modelLockToken.address, rewardToken.address, stakingToken.address, platformOperator, assetAddress, 1/* next id */)
         await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
         await modelFactory.setTokenAdmin(tokenAdmin)
         await modelFactory.setUniswapRouter(UNISWAP_ROUTER)

@@ -54,6 +54,18 @@ describe("IMOEntry Contract", function () {
     clonedContractAddress = await deployAndCloneContract(ethers, modelLockTokenTemplate.address);
     const modelLockToken = await ethers.getContractAt("ModelLockToken", clonedContractAddress);
 
+    const StakingTemplate = await ethers.getContractFactory("Staking");
+    stakingTemplate = await StakingTemplate.deploy();
+    await stakingTemplate.deployed();
+    clonedContractAddress = await deployAndCloneContract(ethers, stakingTemplate.address);
+    const stakingToken = await ethers.getContractAt("Staking", clonedContractAddress);
+
+    const RewardTemplate = await ethers.getContractFactory("Reward");
+    rewardTemplate = await RewardTemplate.deploy();
+    await rewardTemplate.deployed();
+    clonedContractAddress = await deployAndCloneContract(ethers, rewardTemplate.address);
+    const rewardToken = await ethers.getContractAt("Reward", clonedContractAddress);
+
     const ModelFactoryTemplate = await ethers.getContractFactory("ModelFactory");
     modelFactoryTemplate = await ModelFactoryTemplate.deploy();
     await modelFactoryTemplate.deployed();
@@ -90,7 +102,7 @@ describe("IMOEntry Contract", function () {
     await internalRouter.grantRole(await internalRouter.EXECUTOR_ROLE(), imoEntry.address)
 
     // configure model factory
-    await modelFactory.initialize(modelToken.address, modelLockToken.address, assetToken.address, 1)
+    await modelFactory.initialize(modelToken.address, modelLockToken.address, rewardToken.address, stakingToken.address, owner.address, assetToken.address, 1)
     await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
     await modelFactory.setTokenAdmin(admin.address)
     await modelFactory.setUniswapRouter(UNISWAP_ROUTER)

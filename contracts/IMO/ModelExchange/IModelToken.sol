@@ -269,6 +269,7 @@ interface IModelToken is
         address[3] memory integrationAddresses_,
         bytes memory baseParams_,
         bytes memory supplyParams_,
-        bytes memory taxParams_
+        bytes memory taxParams_,
+        address airdropToken_
     ) external;
 }

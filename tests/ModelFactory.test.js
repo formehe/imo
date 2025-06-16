@@ -14,7 +14,7 @@ describe("ModelFactory Contract", function () {
   let initialLockAmount = ethers.utils.parseEther("1000");
 
   beforeEach(async function () {
-    [owner, addr1, addr2, addr3] = await ethers.getSigners();
+    [owner, addr1, addr2, addr3, platformOwner] = await ethers.getSigners();
 
     const { factory, router, weth9 } = await UniswapV2Deployer.deploy(owner);
     UNISWAP_ROUTER = router.address;
@@ -51,6 +51,12 @@ describe("ModelFactory Contract", function () {
     clonedContractAddress = await deployAndCloneContract(ethers, rewardTemplate.address);
     rewardImplemention = await ethers.getContractAt("Reward", clonedContractAddress);
 
+    const AirdropTemplate = await ethers.getContractFactory("Airdrop");
+    airdropTemplate = await AirdropTemplate.deploy();
+    await airdropTemplate.deployed();
+    clonedContractAddress = await deployAndCloneContract(ethers, airdropTemplate.address);
+    airdropImplement = await ethers.getContractAt("Airdrop", clonedContractAddress);
+
     // 部署 ModelFactory 合约
     const ModelFactoryTemplate = await ethers.getContractFactory("ModelFactory");
     modelFactoryTemplate = await ModelFactoryTemplate.deploy();
@@ -66,7 +72,9 @@ describe("ModelFactory Contract", function () {
       stakingImplemention.address,
       owner.address,
       assetToken.address,
-      1 // 初始 ID 为 1
+      1, // 初始 ID 为 1
+      airdropImplement.address, // Airdrop implementation
+      platformOwner.address // Platform owner
     );
 
     await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), addr1.address)
@@ -128,8 +136,8 @@ describe("ModelFactory Contract", function () {
 
     await modelFactory.setTokenAdmin(addr2.address)
 
-    const tokenAddress = await modelFactory.connect(addr1).callStatic["executeBondingCurveApplication(uint256,uint256,uint256,address)"](id, totalSupply, lpSupply, vault)
-    await modelFactory.connect(addr1).executeBondingCurveApplication(id, totalSupply, lpSupply, vault);
+    const tokenAddress = await modelFactory.connect(addr1).callStatic["executeBondingCurveApplication(uint256,uint256,uint256,address,uint256)"](id, totalSupply, lpSupply, vault, totalSupply.div(10))
+    await modelFactory.connect(addr1).executeBondingCurveApplication(id, totalSupply, lpSupply, vault, totalSupply.div(10));
 
     const token = await ethers.getContractAt("ModelToken", tokenAddress);
     expect(await token.name()).to.equal(name);
@@ -360,7 +368,7 @@ describe("ModelFactory Contract", function () {
 
     // Try to execute application that is not active
     await expect(
-      modelFactory.connect(addr1).executeBondingCurveApplication(id, totalSupply, lpSupply, vault)
+      modelFactory.connect(addr1).executeBondingCurveApplication(id, totalSupply, lpSupply, vault, totalSupply.div(10))
     ).to.be.revertedWith("Application is not active");
   });
 
@@ -384,7 +392,9 @@ describe("ModelFactory Contract", function () {
       stakingImplemention.address,
       owner.address,
       assetToken.address,
-      1
+      1,
+      airdropImplement.address, // Airdrop implementation
+      platformOwner.address // Platform owner
     );
 
     await newModelFactory.grantRole(await newModelFactory.BONDING_ROLE(), addr1.address);
@@ -409,7 +419,7 @@ describe("ModelFactory Contract", function () {
 
     // Try to execute application without token admin set
     await expect(
-      newModelFactory.connect(addr1).executeBondingCurveApplication(id, totalSupply, lpSupply, vault)
+      newModelFactory.connect(addr1).executeBondingCurveApplication(id, totalSupply, lpSupply, vault, totalSupply.div(10))
     ).to.be.revertedWith("Token admin not set");
   });
 
@@ -442,36 +452,40 @@ describe("ModelFactory Contract", function () {
     const uint = await assetToken.decimals();
     const totalSupply = ethers.utils.parseEther("10000").div(BigNumber.from(10).pow(uint));
     const lpSupply = ethers.utils.parseEther("5000").div(BigNumber.from(10).pow(uint));
-    const vault = addr2.address;
+    const vault = addr1.address;
 
     await modelFactory.setTokenAdmin(addr2.address);
 
     // Execute application
-    const tokenAddress = await modelFactory.connect(addr1).callStatic["executeBondingCurveApplication(uint256,uint256,uint256,address)"](
-      id, totalSupply, lpSupply, vault
+    const tokenAddress = await modelFactory.connect(addr1).callStatic["executeBondingCurveApplication(uint256,uint256,uint256,address,uint256)"](
+      id, totalSupply, lpSupply, vault, totalSupply.div(10)
     );
-    await modelFactory.connect(addr1).executeBondingCurveApplication(id, totalSupply, lpSupply, vault);
+    await modelFactory.connect(addr1).executeBondingCurveApplication(id, totalSupply, lpSupply, vault, totalSupply.div(10));
 
     // Verify token was created
-    const token = await ethers.getContractAt("ModelToken", tokenAddress);
-    expect(await token.name()).to.equal(name);
-    expect(await token.symbol()).to.equal(symbol);
+    const modelToken = await ethers.getContractAt("ModelToken", tokenAddress);
+    expect(await modelToken.name()).to.equal(name);
+    expect(await modelToken.symbol()).to.equal(symbol);
 
     // Test access control
     await expect(
-      modelFactory.connect(addr1).setTokenTaxParams(100, 100, 100)
+      modelFactory.connect(addr2).setTokenTaxParams(100, 100, 100)
     ).to.be.revertedWith(/AccessControl/);
 
     const application = await modelFactory.getApplication(id);
+
+    await modelToken.connect(addr1).transfer(addr2.address, initialLockAmount);
+    await modelToken.connect(addr1).transfer(addr3.address, initialLockAmount);
+
     stakeToken = await ethers.getContractAt("Staking", application.stakeToken);
     rewardToken = await ethers.getContractAt("Reward", application.rewardToken);
-    await assetToken.connect(addr2).approve(application.stakeToken, 1000);
+    await modelToken.connect(addr2).approve(application.stakeToken, 1000);
     await stakeToken.connect(addr2).stake(1000);
     expect(await stakeToken.getStaked(addr2.address)).to.equal(1000);
     await stakeToken.connect(addr2).withdraw(1000);
     expect(await stakeToken.getStaked(addr2.address)).to.equal(0);
 
-    await assetToken.connect(addr2).approve(application.stakeToken, 1000);
+    await modelToken.connect(addr2).approve(application.stakeToken, 1000);
     await stakeToken.connect(addr2).stake(1000);
     await assetToken.connect(addr2).transfer(rewardToken.address, 1000);
     await expect(rewardToken.connect(addr2).distributeReward(addr2.address, 1000)).to.be.revertedWith("Ownable: caller is not the owner");
@@ -480,7 +494,7 @@ describe("ModelFactory Contract", function () {
     await stakeToken.connect(addr2).claimReward();
     expect(await assetToken.balanceOf(addr2.address)).to.equal(balance.add(500)); // Assuming 500 is the reward amount distributed
 
-    await assetToken.connect(addr2).approve(application.stakeToken, 4000);
+    await modelToken.connect(addr2).approve(application.stakeToken, 4000);
     await stakeToken.connect(addr2).stake(1000);
     await assetToken.connect(addr2).transfer(rewardToken.address, 1000);
     await stakeToken.connect(addr2).stake(1000);
@@ -489,7 +503,7 @@ describe("ModelFactory Contract", function () {
     await assetToken.connect(addr2).transfer(rewardToken.address, 1000);
     await ethers.provider.send("evm_increaseTime", [86400 + 1]);
 
-    await assetToken.connect(addr3).approve(application.stakeToken, 4000);
+    await modelToken.connect(addr3).approve(application.stakeToken, 4000);
     await stakeToken.connect(addr3).stake(1000);
     await assetToken.connect(addr3).transfer(rewardToken.address, 1000);
     await ethers.provider.send("evm_increaseTime", [86400 + 1]);

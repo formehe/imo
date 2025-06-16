@@ -64,6 +64,7 @@ contract IMOEntry is
         uint256 volume24H;
         uint256 prevPrice;
         uint256 lastUpdated;
+        uint256 reserveSupply;
     }
 
     mapping(address => Profile) public profile;
@@ -211,37 +212,39 @@ contract IMOEntry is
 
         string memory tokenName = string(abi.encodePacked("internal_",  _modelName));
         InternalToken token = new InternalToken(tokenName, _ticker, initialSupply, maxTx, uniswapRouter);
-        uint256 supply = token.totalSupply();
+        uint256 reserveSupply = token.totalSupply() * 10 / 100;
+        uint256 liquiditySupply = token.totalSupply() - reserveSupply;
 
         address _pair = factory.createPair(address(token), assetToken);
 
-        bool approved = _approval(address(router), address(token), supply);
+        bool approved = _approval(address(router), address(token), liquiditySupply);
         require(approved, "Not approved");
 
         uint256 k = ((K * 10000) / assetRate);
         uint256 liquidity;
         
         if (IERC20Metadata(assetToken).decimals() >= 12) {
-            liquidity = (((k * (10000 * 10 ** IERC20Metadata(assetToken).decimals())) / supply) * 1 ether) / 10000;
+            liquidity = (((k * (10000 * 10 ** IERC20Metadata(assetToken).decimals())) / liquiditySupply) * 1 ether) / 10000;
         } else {
-            liquidity = (((k * (10000 * 10 ** IERC20Metadata(assetToken).decimals())) * 1 ether / supply)) / 10000;
+            liquidity = (((k * (10000 * 10 ** IERC20Metadata(assetToken).decimals())) * 1 ether / liquiditySupply)) / 10000;
         }
-        
-        router.addInitialLiquidity(address(token), supply, liquidity);
+
+        router.addInitialLiquidity(address(token), liquiditySupply, liquidity);
 
         Data memory _data = Data({
             token: address(token),
             name: tokenName,
             _modelName: _modelName,
             ticker: _ticker,
-            supply: supply,
-            price: supply / liquidity,
+            supply: token.totalSupply(),
+            price: liquiditySupply / liquidity,
             marketCap: liquidity,
             liquidity: liquidity * 2,
             volume: 0,
             volume24H: 0,
-            prevPrice: supply / liquidity,
-            lastUpdated: block.timestamp
+            prevPrice: liquiditySupply / liquidity,
+            lastUpdated: block.timestamp,
+            reserveSupply: reserveSupply
         });
         Token memory tmpToken = Token({
             creator: msg.sender,
@@ -279,7 +282,7 @@ contract IMOEntry is
         // Make initial purchase
         IERC20(assetToken).approve(address(router), initialPurchase);
         router.buy(initialPurchase, address(token), address(this));
-        token.transfer(msg.sender, token.balanceOf(address(this)));
+        token.transfer(msg.sender, token.balanceOf(address(this)) - reserveSupply);
         return (address(token), _pair, tokenInfos.length);
     }
 
@@ -311,7 +314,8 @@ contract IMOEntry is
             specifiedToken.data.lastUpdated;
 
         uint256 liquidity = newReserveB * 2;
-        uint256 mCap = (specifiedToken.data.supply * newReserveB) /
+        uint256 liquiditySupply = specifiedToken.data.supply - specifiedToken.data.reserveSupply;
+        uint256 mCap = (liquiditySupply * newReserveB) /
             newReserveA;
         uint256 price = newReserveA / newReserveB;
         uint256 volume = duration > 86400
@@ -365,7 +369,8 @@ contract IMOEntry is
             specifiedToken.data.lastUpdated;
 
         uint256 liquidity = newReserveB * 2;
-        uint256 mCap = (specifiedToken.data.supply * newReserveB) /
+        uint256 liquiditySupply = specifiedToken.data.supply - specifiedToken.data.reserveSupply;
+        uint256 mCap = (liquiditySupply * newReserveB) /
             newReserveA;
         uint256 price = newReserveA / newReserveB;
         uint256 volume = duration > 86400
@@ -436,7 +441,8 @@ contract IMOEntry is
                 id,
                 _token.data.supply / (10 ** token_.decimals()),
                 tokenBalance / (10 ** token_.decimals()),
-                pairAddress
+                pairAddress,
+                _token.data.reserveSupply / (10 ** token_.decimals())
             );
         _token.modelToken = modelToken;
 
@@ -448,8 +454,9 @@ contract IMOEntry is
         );
 
         token_.burnFrom(pairAddress, tokenBalance);
+        token_.burnFrom(address(this), _token.data.reserveSupply);
         address lp = IModelToken(modelToken).liquidityPools()[0];
-
+        
         emit Graduated(tokenAddress, lp, modelToken);
     }
 
@@ -469,6 +476,7 @@ contract IMOEntry is
 
         for (uint256 i = 0; i < accounts.length; i++) {
             address acc = accounts[i];
+            require(acc != address(this), "Cannot unwrap from contract address");
             uint256 balance = token.balanceOf(acc);
             if (balance > 0) {
                 token.burnFrom(acc, balance);

@@ -15,6 +15,7 @@ interface IModelFactory {
         uint256 id,
         uint256 totalSupply,
         uint256 lpSupply,
-        address vault
+        address vault,
+        uint256 reserveSupply
     ) external returns (address);
 }

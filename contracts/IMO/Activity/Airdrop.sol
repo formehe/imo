@@ -2,48 +2,110 @@
 pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract Airdrop {
+contract Airdrop is Initializable {
+    address public modelPorivder;
+    address public modelPlatform;
 
-    /**
-     *
-     * @param _token ERC20 token to airdrop
-     * @param _recipients list of recipients
-     * @param _amounts list of amounts to send each recipient
-     * @param _total total amount to transfer from caller
-     */
-    function airdrop(
+    uint256 public constant REQUIRED_SIGNATURES = 2;
+    mapping(bytes32 => mapping(address => bool)) public isConfirmed;
+    mapping(bytes32 => uint256) public confirmCount;
+    mapping(bytes32 => bool) public isExecuted;
+
+    event AirdropProposed(bytes32 indexed proposalId, address token, address[] recipients, uint256[] amounts);
+    event AirdropConfirmed(bytes32 indexed proposalId, address signer);
+    event AirdropExecuted(bytes32 indexed proposalId);
+    event AirdropCancelled(bytes32 indexed proposalId, address canceller);
+
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address _modelProvider,
+        address _modelPlatform
+    ) external initializer {
+        require(_modelProvider != address(0), "Invalid model provider address");
+        require(_modelPlatform != address(0), "Invalid model platform address");
+
+        modelPorivder = _modelProvider;
+        modelPlatform = _modelPlatform;
+    }
+
+    function proposeAirdrop(
         IERC20 _token,
         address[] calldata _recipients,
         uint256[] calldata _amounts,
-        uint256 _total
+        string calldata description
+    ) external returns (bytes32) {
+        require(msg.sender == modelPorivder || msg.sender == modelPlatform, "Not authorized");
+        require(_recipients.length == _amounts.length, "Length mismatch");
+
+        bytes32 proposalId = keccak256(abi.encodePacked(
+            _token,
+            _recipients,
+            _amounts,
+            description
+        ));
+
+        require(!isExecuted[proposalId], "Already executed");
+
+        isConfirmed[proposalId][msg.sender] = true;
+        confirmCount[proposalId] = 1;
+
+        emit AirdropProposed(proposalId, address(_token), _recipients, _amounts);
+        return proposalId;
+    }
+
+    function confirmAirdrop(bytes32 _proposalId) external {
+        require(msg.sender == modelPorivder || msg.sender == modelPlatform, "Not authorized");
+        require(!isExecuted[_proposalId], "Already executed");
+        require(!isConfirmed[_proposalId][msg.sender], "Already confirmed");
+
+        isConfirmed[_proposalId][msg.sender] = true;
+        confirmCount[_proposalId] += 1;
+
+        emit AirdropConfirmed(_proposalId, msg.sender);
+    }
+
+    // 执行空投
+    function executeAirdrop(
+        IERC20 _token,
+        address[] calldata _recipients,
+        uint256[] calldata _amounts,
+        string calldata description
     ) external {
-        // bytes selector for transferFrom(address,address,uint256)
-        bytes4 transferFrom = 0x23b872dd;
+        bytes32 proposalId = keccak256(abi.encodePacked(
+            _token,
+            _recipients,
+            _amounts,
+            description
+        ));
+
+        require(!isExecuted[proposalId], "Already executed");
+        require(confirmCount[proposalId] >= REQUIRED_SIGNATURES, "Not enough confirmations");
+
+        isExecuted[proposalId] = true;
+
+        _airdrop(
+            _token,
+            _recipients,
+            _amounts
+        );
+
+        emit AirdropExecuted(proposalId);
+    }
+
+    function _airdrop(
+        IERC20 _token,
+        address[] calldata _recipients,
+        uint256[] calldata _amounts
+    ) internal {
         // bytes selector for transfer(address,uint256)
         bytes4 transfer = 0xa9059cbb;
 
         assembly {
-            // store transferFrom selector
-            let transferFromData := add(0x20, mload(0x40))
-            mstore(transferFromData, transferFrom)
-            // store caller address
-            mstore(add(transferFromData, 0x04), caller())
-            // store address
-            mstore(add(transferFromData, 0x24), address())
-            // store _total
-            mstore(add(transferFromData, 0x44), _total)
-            // call transferFrom for _total
-
-            if iszero(
-                and( // The arguments of `and` are evaluated from right to left.
-                    or(eq(mload(0x00), 1), iszero(returndatasize())), // Returned 1 or nothing.
-                    call(gas(), _token, 0, transferFromData, 0x64, 0x00, 0x20)
-                )
-            ) {
-                revert(0, 0)
-            }
-
             // store transfer selector
             let transferData := add(0x20, mload(0x40))
             mstore(transferData, transfer)
@@ -86,5 +148,29 @@ contract Airdrop {
                 }  
             }
         }
+    }
+
+    function cancelAirdrop(
+        IERC20 _token,
+        address[] calldata _recipients,
+        uint256[] calldata _amounts,
+        string calldata description
+    ) external {
+        bytes32 proposalId = keccak256(abi.encodePacked(
+            _token,
+            _recipients,
+            _amounts,
+            description
+        ));
+
+        require(!isExecuted[proposalId], "Already executed");
+        require(isConfirmed[proposalId][msg.sender], "Not the proposer");
+        require(msg.sender == modelPorivder || msg.sender == modelPlatform, "Not authorized");
+
+        delete confirmCount[proposalId];
+        delete isConfirmed[proposalId][modelPorivder];
+        delete isConfirmed[proposalId][modelPlatform];
+
+        emit AirdropCancelled(proposalId, msg.sender);
     }
 }

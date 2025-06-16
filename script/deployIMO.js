@@ -30,6 +30,7 @@ let   deployedContracts = [
     {name: "Redeem", address: "0x28425f2Bd5Fb311E29FE693Fe1dEC893D61a8F6c"},
     {name: "Staking", address: "0x28425f2Bd5Fb311E29FE693Fe1dEC893D61a8F6c"},
     {name: "Reward", address: "0x28425f2Bd5Fb311E29FE693Fe1dEC893D61a8F6c"},
+    {name: "Airdrop", address: "0x28425f2Bd5Fb311E29FE693Fe1dEC893D61a8F6c"},
 ]
 
 async function deployWithRetry(factory, retries = 5, delay = 5000) {
@@ -86,6 +87,7 @@ async function main() {
     let   assetAddress = "0x7e5eF930DA3b4F777dA4fAfb958047A5CaAe5D8b";
     let   tokenAdmin = owner.address;
     let   platformOperator = owner.address;
+    let   platformAirdropOwner = owner.address;
 
     //address taxVault_ = //
 
@@ -221,6 +223,23 @@ async function main() {
         }
     })()
 
+    const airdropToken = await (async () => {
+        contract = getAddressByName("Airdrop")
+        const AirdropTemplate = await ethers.getContractFactory("Airdrop");
+        airdropTemplate = await deployWithRetry(AirdropTemplate)
+        console.log("Airdrop is :", airdropTemplate.address)
+
+        if (contract === "0x") {
+            const proxyAddress = await deployAndCloneContract(ethers, airdropTemplate.address)
+            console.log("Airdrop is :", proxyAddress)
+            const airdropToken = await ethers.getContractAt("Airdrop", proxyAddress);
+            return airdropToken
+        } else {
+            const airdropToken = await ethers.getContractAt("Airdrop", contract);
+            return airdropToken
+        }
+    })()
+
     const modelFactory = await (async () => {
         contract = getAddressByName("ModelFactory")
         const ModelFactoryTemplate = await ethers.getContractFactory("ModelFactory");
@@ -328,11 +347,12 @@ async function main() {
     contract = getAddressByName("ModelFactory")
     if (contract === "0x") {
         console.log("ModelFactory")
-        await modelFactory.initialize(modelToken.address, modelLockToken.address, rewardToken.address, stakingToken.address, platformOperator, assetAddress, 1/* next id */)
+        await modelFactory.initialize(modelToken.address, modelLockToken.address, rewardToken.address, 
+            stakingToken.address, platformOperator, assetAddress, 1/* next id */, airdropToken.address, platformAirdropOwner)
         await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
         await modelFactory.setTokenAdmin(tokenAdmin)
         await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
-        await modelFactory.setTokenTaxParams(100, 100, 0) // set extra external swap tax, unit is %oo
+        await modelFactory.setTokenTaxParams(100, 100, 1000) // set extra external swap tax, unit is %oo
         await modelFactory.setMaturityDuration(MATURITY_DURATION) //set 10 years of initial asset lock time
     }
 
@@ -349,10 +369,10 @@ async function main() {
             tokenVault.address /*address feeTo_*/,
             500 /** fee 10 **12 */, 
             1000000000 /* uint256 initialSupply_ */, 
-            30000 /*uint256 assetRate_, 100 top -> 10^12 liquid K*/,
+            6 /*uint256 assetRate_, 100 top -> 10^12 liquid K*/,
             50 /* %,uint256 maxTx_ */, 
             modelFactory.address, 
-            ethers.utils.parseEther("1000000"),// gradThreshold
+            ethers.utils.parseEther("141819150"),// gradThreshold
             UNISWAP_ROUTER,
             AI_MODELS
           )

@@ -10,6 +10,7 @@ interface IERC20Config {
     uint256 maxTokensPerTxn;
     uint256 botProtectionDurationInSeconds;
     address vault;
+    uint256 reserveSupply;
   }
 
   struct ERC20TaxParameters {

@@ -69,7 +69,8 @@ contract ModelToken is
         address[3] memory integrationAddresses_,
         bytes memory baseParams_,
         bytes memory supplyParams_,
-        bytes memory taxParams_
+        bytes memory taxParams_,
+        address airdropToken_
     ) external override initializer {
         _decodeBaseParams(integrationAddresses_[0], baseParams_);
         _uniswapRouter = IUniswapV2Router02(integrationAddresses_[1]);
@@ -89,6 +90,7 @@ contract ModelToken is
 
         uint256 lpSupply = supplyParams.lpSupply * (10 ** decimals());
         uint256 vaultSupply = supplyParams.vaultSupply * (10 ** decimals());
+        uint256 reserveSupply = supplyParams.reserveSupply * (10 ** decimals());
 
         botProtectionDurationInSeconds = supplyParams
             .botProtectionDurationInSeconds;
@@ -99,7 +101,7 @@ contract ModelToken is
         );
         projectTaxRecipient = taxParams.projectTaxRecipient;
 
-        _mintBalances(lpSupply, vaultSupply);
+        _mintBalances(lpSupply, vaultSupply, reserveSupply, airdropToken_);
 
         uniswapV2Pair = _createPair();
 
@@ -122,7 +124,8 @@ contract ModelToken is
         if (
             erc20SupplyParameters_.maxSupply !=
             (erc20SupplyParameters_.vaultSupply +
-                erc20SupplyParameters_.lpSupply)
+                erc20SupplyParameters_.lpSupply + 
+                erc20SupplyParameters_.reserveSupply)
         ) {
             revert SupplyTotalMismatch();
         }
@@ -153,13 +156,17 @@ contract ModelToken is
         }
     }
 
-    function _mintBalances(uint256 lpMint_, uint256 vaultMint_) internal {
+    function _mintBalances(uint256 lpMint_, uint256 vaultMint_, uint256 reserveSupply_, address airdropToken) internal {
         if (lpMint_ > 0) {
             _mint(address(this), lpMint_);
         }
 
         if (vaultMint_ > 0) {
             _mint(vault, vaultMint_);
+        }
+
+        if (reserveSupply_ > 0) {
+            _mint(airdropToken, reserveSupply_);
         }
     }
 

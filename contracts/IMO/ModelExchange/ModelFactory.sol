@@ -13,6 +13,7 @@ import "./IModelToken.sol";
 import "./IModelLockToken.sol";
 import "./IStaking.sol";
 import "./IReward.sol";
+import "../Activity/Airdrop.sol";
 
 contract ModelFactory is
     IModelFactory,
@@ -28,6 +29,8 @@ contract ModelFactory is
     address public rewardTokenImplementation; // Unused in this version
     address public stakeTokenImplementation; // Unused in this version
     address public platformOperator; // Unused in this version
+    address public airdropImplementation; // Unused in this version
+    address public platformAirdropOwner;
     address[] public allTokens;
 
     address public assetToken; // Base currency
@@ -60,6 +63,7 @@ contract ModelFactory is
         address lockToken;
         address rewardToken;
         address stakeToken;
+        address airdropToken; // Unused in this version
     }
 
     mapping(uint256 => Application) private _applications;
@@ -102,7 +106,9 @@ contract ModelFactory is
         address stakeTokenImplementation_,
         address platformOperator_,
         address assetToken_,
-        uint256 nextId_
+        uint256 nextId_,
+        address airdropImplementation_,
+        address platformAirdropOwner_
     ) public initializer {
         __Pausable_init();
 
@@ -113,6 +119,8 @@ contract ModelFactory is
         platformOperator = platformOperator_;
         assetToken = assetToken_;
         nextId = nextId_;
+        airdropImplementation = airdropImplementation_; 
+        platformAirdropOwner = platformAirdropOwner_;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
@@ -171,7 +179,10 @@ contract ModelFactory is
         application.status = ApplicationStatus.Executed;
 
         // step0
-        (address stakeToken, address rewardToken) = _createStakeAndRewardToken(application.proposer);
+        (address stakeToken, address rewardToken) = _createStakeAndRewardToken();
+        
+        // step 0.1
+        address airdropToken = _createAirdrop(application.proposer);
 
         // step1
         bytes memory tokenTaxParams = abi.encode(
@@ -185,7 +196,8 @@ contract ModelFactory is
             application.name,
             application.symbol,
             tokenSupplyParams_,
-            tokenTaxParams
+            tokenTaxParams,
+            airdropToken
         );
 
         // step2
@@ -210,11 +222,20 @@ contract ModelFactory is
         );
 
         // step5
+        _initializeStakeAndRewardToken(
+            application.proposer,
+            stakeToken,
+            rewardToken,
+            token
+        );
+
+        // step6
         application.token = token;
         application.lockToken = lockToken;
         application.lp = lp;
         application.stakeToken = stakeToken;
         application.rewardToken = rewardToken;
+        application.airdropToken = airdropToken;
 
         emit NewPersona(token, lp);
     }
@@ -223,14 +244,16 @@ contract ModelFactory is
         string memory name,
         string memory symbol,
         bytes memory tokenSupplyParams_,
-        bytes memory tokenTaxParams_
+        bytes memory tokenTaxParams_,
+        address airdropToken
     ) internal returns (address instance) {
         instance = Clones.clone(tokenImplementation);
         IModelToken(instance).initialize(
             [_tokenAdmin, _uniswapRouter, assetToken],
             abi.encode(name, symbol),
             tokenSupplyParams_,
-            tokenTaxParams_
+            tokenTaxParams_,
+            airdropToken
         );
 
         allTradingTokens.push(instance);
@@ -259,12 +282,20 @@ contract ModelFactory is
     }
 
     function _createStakeAndRewardToken(
-        address provider
     ) internal returns (address stakeToken, address rewardToken) {
         stakeToken = Clones.clone(stakeTokenImplementation);
         rewardToken = Clones.clone(rewardTokenImplementation);
+        return (stakeToken, rewardToken);
+    }
+
+    function _initializeStakeAndRewardToken(
+        address provider,
+        address stakeToken,
+        address rewardToken,
+        address modelToken
+    ) internal{
         IStaking(stakeToken).initialize(
-            assetToken,
+            modelToken,
             rewardToken,
             provider,
             platformOperator
@@ -274,8 +305,17 @@ contract ModelFactory is
             assetToken,
             stakeToken
         );
-        
-        return (stakeToken, rewardToken);
+    }
+
+    function _createAirdrop(
+        address provider
+    ) internal returns (address airdropToken) {
+        airdropToken = Clones.clone(airdropImplementation);
+        Airdrop(airdropToken).initialize(
+            provider,
+            platformAirdropOwner
+        );
+        return airdropToken;
     }
 
     function setImplementations(
@@ -394,16 +434,18 @@ contract ModelFactory is
         uint256 id,
         uint256 totalSupply,
         uint256 lpSupply,
-        address vault
+        address vault,
+        uint256 reserveSupply
     ) public override onlyRole(BONDING_ROLE) noReentrant returns (address) {
         bytes memory tokenSupplyParams = abi.encode(
             totalSupply,
             lpSupply,
-            totalSupply - lpSupply,
+            totalSupply - lpSupply - reserveSupply,
             totalSupply,
             totalSupply,
             0,
-            vault
+            vault,
+            reserveSupply
         );
 
         _executeApplication(id, tokenSupplyParams, true);

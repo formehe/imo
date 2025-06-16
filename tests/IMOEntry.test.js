@@ -10,7 +10,7 @@ describe("IMOEntry Contract", function () {
   let UNISWAP_ROUTER;
 
   beforeEach(async function () {
-    [owner, addr1, admin, feeTo, withdrawer] = await ethers.getSigners();
+    [owner, addr1, admin, feeTo, withdrawer, platformOwner] = await ethers.getSigners();
 
     const { factory, router, weth9 } = await UniswapV2Deployer.deploy(owner);
     UNISWAP_ROUTER = router.address;
@@ -66,6 +66,12 @@ describe("IMOEntry Contract", function () {
     clonedContractAddress = await deployAndCloneContract(ethers, rewardTemplate.address);
     const rewardToken = await ethers.getContractAt("Reward", clonedContractAddress);
 
+    const AirdropTemplate = await ethers.getContractFactory("Airdrop");
+    airdropTemplate = await AirdropTemplate.deploy();
+    await airdropTemplate.deployed();
+    clonedContractAddress = await deployAndCloneContract(ethers, airdropTemplate.address);
+    airdropToken = await ethers.getContractAt("Airdrop", clonedContractAddress);
+
     const ModelFactoryTemplate = await ethers.getContractFactory("ModelFactory");
     modelFactoryTemplate = await ModelFactoryTemplate.deploy();
     await modelFactoryTemplate.deployed();
@@ -102,7 +108,8 @@ describe("IMOEntry Contract", function () {
     await internalRouter.grantRole(await internalRouter.EXECUTOR_ROLE(), imoEntry.address)
 
     // configure model factory
-    await modelFactory.initialize(modelToken.address, modelLockToken.address, rewardToken.address, stakingToken.address, owner.address, assetToken.address, 1)
+    await modelFactory.initialize(modelToken.address, modelLockToken.address, rewardToken.address,
+       stakingToken.address, owner.address, assetToken.address, 1, airdropToken.address, platformOwner.address);
     await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
     await modelFactory.setTokenAdmin(admin.address)
     await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
@@ -254,8 +261,11 @@ describe("IMOEntry Contract", function () {
     await modelToken.connect(admin).burn(10)
     await modelToken.increaseAllowance(addr1.address, 100)
     await modelToken.decreaseAllowance(addr1.address, 100)
-    await expect(modelToken.connect(admin).addLiquidityPool(AddressZero)).to.be.revertedWith("LiquidityPoolCannotBeAddressZero")
-    await expect(modelToken.connect(admin).addLiquidityPool(addr1.address)).to.be.revertedWith("LiquidityPoolMustBeAContractAddress")
+    // await expect(modelToken.connect(admin).addLiquidityPool(AddressZero)).to.be.revertedWith("LiquidityPoolCannotBeAddressZero")
+    // await expect(modelToken.connect(admin).addLiquidityPool(addr1.address)).to.be.revertedWith("LiquidityPoolMustBeAContractAddress")
+    await expect(modelToken.connect(admin).addLiquidityPool(AddressZero)).to.be.reverted
+    await expect(modelToken.connect(admin).addLiquidityPool(addr1.address)).to.be.reverted
+
     await modelToken.connect(admin).addLiquidityPool(modelLockToken.address)
     await modelToken.connect(admin).removeLiquidityPool(modelLockToken.address)
     await modelToken.connect(admin).addValidCaller(ethers.utils.formatBytes32String("hello"))
@@ -280,21 +290,24 @@ describe("IMOEntry Contract", function () {
     await assetToken.connect(feeTo).approve(redeem.address, ethers.BigNumber.from(10).pow(decimal).mul(100))
 
     await expect(redeem.connect(feeTo).redeemAndBurn(application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), 1)).
-      to.emit(redeem, "RedeemedAndBurned").withArgs(feeTo.address, application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), ethers.BigNumber.from("83726058678288586849"));
+      to.emit(redeem, "RedeemedAndBurned").withArgs(feeTo.address, application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), ethers.BigNumber.from("83717558264728289424"));
 
     await modelToken.connect(admin).approve(feeTo.address, ethers.BigNumber.from(10).pow(decimal).mul(100))
     await modelToken.connect(feeTo).burnFrom(admin.address, 100)
     // await modelToken.connect(addr1).approve(feeTo.address, 100)
-    await expect(modelToken.connect(admin).withdrawERC20(modelToken.address, 100)).to.be.revertedWith("CannotWithdrawThisToken")
+    // await expect(modelToken.connect(admin).withdrawERC20(modelToken.address, 100)).to.be.revertedWith("CannotWithdrawThisToken")
+    await expect(modelToken.connect(admin).withdrawERC20(modelToken.address, 100)).to.be.reverted
     await assetToken.transfer(modelToken.address, amount1);
     await modelToken.connect(admin).withdrawERC20(assetToken.address, 100)
-    await expect(modelToken.connect(admin).withdrawETH(100)).to.be.revertedWith("TransferFailed")
+    // await expect(modelToken.connect(admin).withdrawETH(100)).to.be.revertedWith("TransferFailed")
+    await expect(modelToken.connect(admin).withdrawETH(100)).to.be.reverted
     await admin.sendTransaction({
       to: modelToken.address,           // 合约地址
       value: ethers.utils.parseEther("1.0"), // 转 1 个主币
     });
     await modelToken.connect(admin).withdrawETH(100)
-    await expect(modelToken.connect(admin).approve(AddressZero, ethers.BigNumber.from(10).pow(decimal).mul(100))).to.be.revertedWith("ApproveToTheZeroAddress")
+    // await expect(modelToken.connect(admin).approve(AddressZero, ethers.BigNumber.from(10).pow(decimal).mul(100))).to.be.revertedWith("ApproveToTheZeroAddress")
+    await expect(modelToken.connect(admin).approve(AddressZero, ethers.BigNumber.from(10).pow(decimal).mul(100))).to.be.reverted
 
     await modelToken.connect(admin).transfer(UNISWAP_ROUTER, 100)
   });

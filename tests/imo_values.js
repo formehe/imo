@@ -10,7 +10,7 @@ describe("IMOEntry Contract", function () {
   let UNISWAP_ROUTER;
 
   beforeEach(async function () {
-    [owner, addr1, admin, feeTo, withdrawer] = await ethers.getSigners();
+    [owner, addr1, admin, feeTo, withdrawer, platformOwner] = await ethers.getSigners();
 
     const { factory, router, weth9 } = await UniswapV2Deployer.deploy(owner);
     UNISWAP_ROUTER = router.address;
@@ -66,6 +66,12 @@ describe("IMOEntry Contract", function () {
     clonedContractAddress = await deployAndCloneContract(ethers, rewardTemplate.address);
     const rewardToken = await ethers.getContractAt("Reward", clonedContractAddress);
 
+    const AirdropTemplate = await ethers.getContractFactory("Airdrop");
+    airdropTemplate = await AirdropTemplate.deploy();
+    await airdropTemplate.deployed();
+    clonedContractAddress = await deployAndCloneContract(ethers, airdropTemplate.address);
+    airdropToken = await ethers.getContractAt("Airdrop", clonedContractAddress);
+
     const ModelFactoryTemplate = await ethers.getContractFactory("ModelFactory");
     modelFactoryTemplate = await ModelFactoryTemplate.deploy();
     await modelFactoryTemplate.deployed();
@@ -102,7 +108,8 @@ describe("IMOEntry Contract", function () {
     await internalRouter.grantRole(await internalRouter.EXECUTOR_ROLE(), imoEntry.address)
 
     // configure model factory
-    await modelFactory.initialize(modelToken.address, modelLockToken.address, rewardToken.address, stakingToken.address, owner.address, assetToken.address, 1)
+    await modelFactory.initialize(modelToken.address, modelLockToken.address, rewardToken.address, 
+      stakingToken.address, owner.address, assetToken.address, 1, airdropToken.address, platformOwner.address)
     await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
     await modelFactory.setTokenAdmin(admin.address)
     await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
@@ -123,7 +130,7 @@ describe("IMOEntry Contract", function () {
       99 /*%,uint256 maxTx_*/, 
       modelFactory.address, 
       // ethers.utils.parseEther("142857150"), // gradThreshold ~~10^6
-      ethers.utils.parseEther("144090000"), // gradThreshold ~~10^6
+      ethers.utils.parseEther("141819150"), // gradThreshold ~~10^6
       UNISWAP_ROUTER,
       aiModels.address,
     )
@@ -135,7 +142,9 @@ describe("IMOEntry Contract", function () {
   it("Should allow selling and update token data and tax is not zero", async function () {
     amount1 = ethers.BigNumber.from(10).pow(decimal).mul(40000000)
     await assetToken.transfer(addr1.address, amount1);
+    await assetToken.transfer(admin.address, amount1);
     await assetToken.connect(addr1).approve(imoEntry.address, amount1);
+    await assetToken.connect(admin).approve(internalRouter.address, amount1);
 
     await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 0, 1)
     let tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.BigNumber.from(10).pow(decimal).mul(1));
@@ -144,21 +153,19 @@ describe("IMOEntry Contract", function () {
     const tokenAddress = (await imoEntry.tokenInfos(0)).toString();
     internalPair = await internalFactory.getPair(tokenAddress, assetToken.address);
     internalToken = await ethers.getContractAt("InternalToken", tokenAddress);
-    console.log((await internalToken.balanceOf(internalPair)).toString());
 
     await assetToken.connect(addr1).approve(internalRouter.address, ethers.BigNumber.from(10).pow(decimal).mul(40000000));
-    await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(30001000), tokenAddress);
+    await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(30000000), tokenAddress);
     // await expect(imoEntry.unwrapToken(tokenAddress, [addr1.address])).to.be.revertedWith("Token is not graduated yet")
 
-    await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(1000), tokenAddress);
-    // tx = await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(100000), tokenAddress);
-    // const receipt = await tx.wait(); 
-    // const logs = receipt.events.find(e => e.address === modelFactory.address);
+    tx = await imoEntry.connect(admin).buy(ethers.BigNumber.from(10).pow(decimal).mul(1000), tokenAddress);
+    const receipt = await tx.wait(); 
+    const logs = receipt.events.find(e => e.address === modelFactory.address);
 
-    // application = await modelFactory.getApplication(logs.data)
-    // modelToken = await ethers.getContractAt("ModelToken", application.token)
-    // await imoEntry.unwrapToken(tokenAddress, [admin.address])
-    // await modelToken.connect(admin).transfer(UNISWAP_ROUTER, 100)
-    // await modelToken.distributeTaxTokens()
+    application = await modelFactory.getApplication(logs.data)
+    modelToken = await ethers.getContractAt("ModelToken", application.token)
+    await imoEntry.unwrapToken(tokenAddress, [admin.address])
+    await modelToken.connect(admin).transfer(UNISWAP_ROUTER, 100)
+    await modelToken.distributeTaxTokens()
   });
 });

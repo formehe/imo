@@ -304,7 +304,9 @@ contract ModelFactory is
 
         IReward(rewardToken).initialize(
             assetToken,
-            stakeToken
+            stakeToken,
+            modelToken,
+            _uniswapRouter
         );
     }
 

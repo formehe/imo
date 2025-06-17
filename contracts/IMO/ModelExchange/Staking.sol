@@ -153,10 +153,9 @@ contract Staking is Initializable, ReentrancyGuard, IStaking {
         reward -= lastRewardTotalPaid[account];
         if (account == stakeProvider) {
             paidReward += (reward * stakeProviderPercentage) / 100;
-        } 
+        }
         
         if (account == stakeManager) {
-            reward -= lastRewardTotalPaid[account];
             paidReward += (reward * stakeManagerPercentage) / 100;
         }
 

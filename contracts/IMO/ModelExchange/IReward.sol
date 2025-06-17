@@ -6,7 +6,7 @@ interface IReward {
     event RewardDistributed(address indexed to, uint256 amount);
     event RewardStatsUpdated(uint256 totalRewards, uint256 currentBalance);
     
-    function initialize(address _assetToken, address _owner) external;
+    function initialize(address _assetToken, address _owner, address _modelToken, address _router) external;
 
     // 查询合约当前余额
     function getContractBalance() external view returns (uint256);

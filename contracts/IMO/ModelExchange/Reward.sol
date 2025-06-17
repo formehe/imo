@@ -5,20 +5,28 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "../IUniswap/IUniswapV2Router02.sol";
 import "./IReward.sol";
+import "./IModelToken.sol";
 
 contract Reward is Initializable, Ownable, IReward, ReentrancyGuard {
     IERC20 public assetToken;
+    IModelToken public modelToken;
+    IUniswapV2Router02 internal uniswapRouter;
     uint256 private totalHistoricalRewards;
     
     constructor() {
         _disableInitializers();
     }
     
-    function initialize(address _assetToken, address _owner) external initializer {
+    function initialize(address _assetToken, address _owner, address _modelToken, address _router) external initializer {
         require(_owner != address(0), "Invalid owner address");
         require(_assetToken != address(0), "Invalid token address");
+        require(_modelToken != address(0), "Invalid model token address");
+        require(_router != address(0), "Invalid Uniswap router address");
         assetToken = IERC20(_assetToken);
+        modelToken = IModelToken(_modelToken);
+        uniswapRouter = IUniswapV2Router02(_router);
         _transferOwnership(_owner);
     }
     
@@ -37,6 +45,24 @@ contract Reward is Initializable, Ownable, IReward, ReentrancyGuard {
     
     function getTotalHistoricalRewards() public view returns (uint256) {
         return totalHistoricalRewards;
+    }
+    
+    function distributeTaxTokens() public nonReentrant {
+        modelToken.distributeTaxTokens();
+        address[] memory path = new address[](2);
+        path[0] = address(modelToken);
+        path[1] = address(assetToken);
+        uint256 swapBalance_ = modelToken.balanceOf(address(this));
+        require(swapBalance_ > 0, "No tokens to swap");
+        modelToken.approve(address(uniswapRouter), swapBalance_);
+        uniswapRouter
+                .swapExactTokensForTokensSupportingFeeOnTransferTokens(
+                    swapBalance_,
+                    0,
+                    path,
+                    address(this),
+                    block.timestamp + 600
+                );
     }
     
     function distributeReward(address _to, uint256 _amount) external onlyOwner nonReentrant {

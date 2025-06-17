@@ -7,6 +7,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 contract Airdrop is Initializable {
     address public modelPorivder;
     address public modelPlatform;
+    address public modelToken;
 
     uint256 public constant REQUIRED_SIGNATURES = 2;
     mapping(bytes32 => mapping(address => bool)) public isConfirmed;
@@ -24,17 +25,19 @@ contract Airdrop is Initializable {
 
     function initialize(
         address _modelProvider,
-        address _modelPlatform
+        address _modelPlatform,
+        address _modelToken
     ) external initializer {
         require(_modelProvider != address(0), "Invalid model provider address");
         require(_modelPlatform != address(0), "Invalid model platform address");
+        require(_modelToken != address(0), "Invalid model token address");
 
         modelPorivder = _modelProvider;
         modelPlatform = _modelPlatform;
+        modelToken = _modelToken;
     }
 
     function proposeAirdrop(
-        IERC20 _token,
         address[] calldata _recipients,
         uint256[] calldata _amounts,
         string calldata description
@@ -43,7 +46,6 @@ contract Airdrop is Initializable {
         require(_recipients.length == _amounts.length, "Length mismatch");
 
         bytes32 proposalId = keccak256(abi.encodePacked(
-            _token,
             _recipients,
             _amounts,
             description
@@ -54,7 +56,7 @@ contract Airdrop is Initializable {
         isConfirmed[proposalId][msg.sender] = true;
         confirmCount[proposalId] = 1;
 
-        emit AirdropProposed(proposalId, address(_token), _recipients, _amounts);
+        emit AirdropProposed(proposalId, modelToken, _recipients, _amounts);
         return proposalId;
     }
 
@@ -71,13 +73,11 @@ contract Airdrop is Initializable {
 
     // 执行空投
     function executeAirdrop(
-        IERC20 _token,
         address[] calldata _recipients,
         uint256[] calldata _amounts,
         string calldata description
     ) external {
         bytes32 proposalId = keccak256(abi.encodePacked(
-            _token,
             _recipients,
             _amounts,
             description
@@ -89,7 +89,7 @@ contract Airdrop is Initializable {
         isExecuted[proposalId] = true;
 
         _airdrop(
-            _token,
+            IERC20(modelToken),
             _recipients,
             _amounts
         );
@@ -151,13 +151,11 @@ contract Airdrop is Initializable {
     }
 
     function cancelAirdrop(
-        IERC20 _token,
         address[] calldata _recipients,
         uint256[] calldata _amounts,
         string calldata description
     ) external {
         bytes32 proposalId = keccak256(abi.encodePacked(
-            _token,
             _recipients,
             _amounts,
             description

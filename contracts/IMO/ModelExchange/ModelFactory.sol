@@ -182,7 +182,7 @@ contract ModelFactory is
         (address stakeToken, address rewardToken) = _createStakeAndRewardToken();
         
         // step 0.1
-        address airdropToken = _createAirdrop(application.proposer);
+        address airdropToken = _createAirdrop();
 
         // step1
         bytes memory tokenTaxParams = abi.encode(
@@ -201,6 +201,7 @@ contract ModelFactory is
         );
 
         // step2
+        _initializeAirdrop(airdropToken, application.proposer, token);
         address lp = IModelToken(token).liquidityPools()[0];
         IERC20(assetToken).safeTransfer(token, initialAmount);
         IModelToken(token).addInitialLiquidity(address(this));
@@ -308,14 +309,23 @@ contract ModelFactory is
     }
 
     function _createAirdrop(
-        address provider
     ) internal returns (address airdropToken) {
         airdropToken = Clones.clone(airdropImplementation);
+
+        return airdropToken;
+    }
+
+    
+    function _initializeAirdrop(
+        address airdropToken,
+        address provider,
+        address modelToken
+    ) internal{
         Airdrop(airdropToken).initialize(
             provider,
-            platformAirdropOwner
+            platformAirdropOwner,
+            modelToken
         );
-        return airdropToken;
     }
 
     function setImplementations(

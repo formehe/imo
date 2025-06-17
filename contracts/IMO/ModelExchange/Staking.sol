@@ -100,6 +100,7 @@ contract Staking is Initializable, ReentrancyGuard, IStaking {
      * @param amount | How much to withdraw
      */
     function withdraw(uint256 amount) external updateReward(msg.sender) nonReentrant {
+        require(amount <= balances[msg.sender], "Insufficient balance to withdraw");
         totalSupply -= amount;
         balances[msg.sender] -= amount;
         emit WithdrewStake(msg.sender, amount);

@@ -19,18 +19,18 @@ const { deployAndProxyContract,deployAndCloneContract} = require("../tests/utils
 // {name: "TokenVault", address: "0x8258C2C45B4ad9bEa8AD62bf4Cfa470B3B9B2ca7"},
 
 let   deployedContracts = [
-    {name: "ProxyAdmin", address: "0xA7F590c8B2D0435824B15CD41B66173473C71CCE"},
-    {name: "InternalFactory", address: "0xB40fA8Ea39005dB6Aa500654666f0A58A861FA05"},
-    {name: "InternalRouter", address: "0x790e610E51d55ef82EB272102C9bc5833eDFB99c"},
-    {name: "ModelToken", address: "0xaB49c2F12b7B98cEf29d4a3441FFDf0782039c5B"},
-    {name: "ModelLockToken", address: "0x1cFb5fbd5b9f4e9c88db8019E220dc5E59D7835B"},
-    {name: "ModelFactory", address: "0xa8773c3c9d70bF5C5d274A3b1c8Db9238c638Abe"},
-    {name: "IMOEntry", address: "0xd0f82eb271Ab78B76A669eD1288041495249A768"},
-    {name: "TokenVault", address: "0x8258C2C45B4ad9bEa8AD62bf4Cfa470B3B9B2ca7"},
-    {name: "Redeem", address: "0x28425f2Bd5Fb311E29FE693Fe1dEC893D61a8F6c"},
-    {name: "Staking", address: "0x28425f2Bd5Fb311E29FE693Fe1dEC893D61a8F6c"},
-    {name: "Reward", address: "0x28425f2Bd5Fb311E29FE693Fe1dEC893D61a8F6c"},
-    {name: "Airdrop", address: "0x28425f2Bd5Fb311E29FE693Fe1dEC893D61a8F6c"},
+    {name: "ProxyAdmin", address: "0xFfe549CBEaa330bE6e1e60F3B37733a4F4186cf4"},
+    {name: "InternalFactory", address: "0x4A14DFE0a2fd2dA54321081b9f3CF03069C49cB3"},
+    {name: "InternalRouter", address: "0x36D1959D2375ffBBdEE29D07b96f3DfBA30B497d"},
+    {name: "ModelToken", address: "0x853Ab6e5943eC2891cbeD40E1BAB8033aaa54AfF"},
+    {name: "ModelLockToken", address: "0x71A292D3453E295484fb9CB5dC8593A2F0752a08"},
+    {name: "Staking", address: "0x7f82d77E4D9df20c4469B95af97fFa73559bb3Df"},
+    {name: "Reward", address: "0x1e43f9b163E7F1b31A3ec2f37FAfaB91F99e68b4"},
+    {name: "Airdrop", address: "0x85979e1eb1369cc063727B7C4532264017C0cb66"},
+    {name: "ModelFactory", address: "0x68206Fc4e1795a2a715227f2817C2BCF68c18320"},
+    {name: "IMOEntry", address: "0xdE0F9fBFe602bdaC2D44f4f0B21A528c6EB3C56A"},
+    {name: "TokenVault", address: "0x3a4fB627565e77c69D2Ac279C510917D35bA3BB0"},
+    {name: "Redeem", address: "0xd00e0C02F71A2Cec9A45E0715328E5f3c66B196c"},
 ]
 
 async function deployWithRetry(factory, retries = 5, delay = 5000) {
@@ -80,7 +80,7 @@ async function main() {
 
     const TAX_VAULT = "0xF2EB27C06F8A4C72710765E29923Ea9b21Dea912";
     const UNISWAP_ROUTER = "0x626459cF9438259ed0812D71650568306486CB00";
-    const AI_MODELS = "0xf64CDc1493a9bf3e7D47D853FB621F046e8E10F4";
+    const AI_MODELS = "0x4d3aec3d99d5B1Edf2C375657d0765D960175a3b";
     const BUY_TAX = 1; //%, internal swap tax
     const SELL_TAX = 1; //%, internal swap tax
     const MATURITY_DURATION = 315360000;// 10 years
@@ -193,7 +193,7 @@ async function main() {
         contract = getAddressByName("Staking")
         const StakingTemplate = await ethers.getContractFactory("Staking");
         stakingTemplate = await deployWithRetry(StakingTemplate)
-        console.log("Staking is :", stakingTemplate.address)
+        console.log("StakingTempalte is :", stakingTemplate.address)
 
         if (contract === "0x") {
             const proxyAddress = await deployAndCloneContract(ethers, stakingTemplate.address)
@@ -210,7 +210,7 @@ async function main() {
         contract = getAddressByName("Reward")
         const RewardTemplate = await ethers.getContractFactory("Reward");
         rewardTemplate = await deployWithRetry(RewardTemplate)
-        console.log("Reward is :", rewardTemplate.address)
+        console.log("RewardTempalte is :", rewardTemplate.address)
 
         if (contract === "0x") {
             const proxyAddress = await deployAndCloneContract(ethers, rewardTemplate.address)
@@ -227,7 +227,7 @@ async function main() {
         contract = getAddressByName("Airdrop")
         const AirdropTemplate = await ethers.getContractFactory("Airdrop");
         airdropTemplate = await deployWithRetry(AirdropTemplate)
-        console.log("Airdrop is :", airdropTemplate.address)
+        console.log("AirdropTempalte is :", airdropTemplate.address)
 
         if (contract === "0x") {
             const proxyAddress = await deployAndCloneContract(ethers, airdropTemplate.address)
@@ -305,13 +305,13 @@ async function main() {
         contract = getAddressByName("Redeem")
         if (contract === "0x") {
             const Redeem = await ethers.getContractFactory("Redeem");
-            redeem = await Redeem.deploy(assetAddress, UNISWAP_ROUTER)
+            const redeem = await Redeem.deploy(assetAddress, UNISWAP_ROUTER)
             await redeem.deployed()
             console.log("Redeem is :", redeem.address)
             console.log("Transaction hash :", redeem.deployTransaction.hash)
             return redeem
         } else {
-            redeem = await ethers.getContractAt("Redeem", contract);
+            const redeem = await ethers.getContractAt("Redeem", contract);
             console.log("Redeem is :", redeem.address)
             return redeem
         }
@@ -357,7 +357,7 @@ async function main() {
     }
 
     const taxVault = await ethers.getContractAt("TaxVault", TAX_VAULT)
-    await taxVault.setReedm(redeem.address)
+    await taxVault.setRedeem(redeem.address)
 
     // configure IMOEntry
     contract = getAddressByName("IMOEntry")

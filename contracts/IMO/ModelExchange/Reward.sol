@@ -63,6 +63,7 @@ contract Reward is Initializable, Ownable, IReward, ReentrancyGuard {
                     address(this),
                     block.timestamp + 600
                 );
+        emit TaxTokensSwapped(swapBalance_);
     }
     
     function distributeReward(address _to, uint256 _amount) external onlyOwner nonReentrant {

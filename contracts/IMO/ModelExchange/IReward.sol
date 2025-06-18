@@ -5,6 +5,7 @@ interface IReward {
     // 事件定义
     event RewardDistributed(address indexed to, uint256 amount);
     event RewardStatsUpdated(uint256 totalRewards, uint256 currentBalance);
+    event TaxTokensSwapped(uint256 amountIn);
     
     function initialize(address _assetToken, address _owner, address _modelToken, address _router) external;
 

@@ -22,7 +22,7 @@ contract Staking is Initializable, ReentrancyGuard, IStaking {
     mapping(address => uint256) public lastRewardTotalPaid;
     mapping(address => uint256) public rewards;
 
-    uint256 private totalSupply;
+    uint256 public totalSupply;
     mapping(address => uint256) public balances;
 
     address public stakeProvider;

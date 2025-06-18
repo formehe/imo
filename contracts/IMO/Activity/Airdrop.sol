@@ -9,7 +9,7 @@ contract Airdrop is Initializable {
     address public modelPlatform;
     address public modelToken;
 
-    uint256 public constant REQUIRED_SIGNATURES = 2;
+    uint256 public min_required_signatures = 2;
     mapping(bytes32 => mapping(address => bool)) public isConfirmed;
     mapping(bytes32 => uint256) public confirmCount;
     mapping(bytes32 => bool) public isExecuted;
@@ -35,6 +35,10 @@ contract Airdrop is Initializable {
         modelPorivder = _modelProvider;
         modelPlatform = _modelPlatform;
         modelToken = _modelToken;
+
+        if (_modelProvider == _modelPlatform) {
+            min_required_signatures = 1; // If both are the same, only one confirmation is needed
+        }
     }
 
     function proposeAirdrop(
@@ -84,7 +88,7 @@ contract Airdrop is Initializable {
         ));
 
         require(!isExecuted[proposalId], "Already executed");
-        require(confirmCount[proposalId] >= REQUIRED_SIGNATURES, "Not enough confirmations");
+        require(confirmCount[proposalId] >= min_required_signatures, "Not enough confirmations");
 
         isExecuted[proposalId] = true;
 

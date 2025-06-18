@@ -1,7 +1,7 @@
 async function main() {
-    const [owner] = await ethers.getSigners();
-    const IMOENTRY = "0x48FE208375824005E86f270C3a651642D29909A7"
-    const TOKEN_VAULT = "0x9aa689C6312bde5A32bf2A681E01DD887762895C"
+    const [owner, platformOperator, platformAirdropOwner] = await ethers.getSigners();
+    const IMOENTRY = "0x50b77eA763832FB6Ff4C089A81f99893aA728f5A"
+    const TOKEN_VAULT = "0xA9E3eb7Dbc675A3cF9fef5770Ea800f20211E65d"
     const ASSET_ERC20 = "0x7e5eF930DA3b4F777dA4fAfb958047A5CaAe5D8b"
     const AIMODELS = "0x4d3aec3d99d5B1Edf2C375657d0765D960175a3b"
     const MODEL_NAME = "test3"
@@ -22,8 +22,8 @@ async function main() {
     tokenVault = await ethers.getContractAt("TokenVault", TOKEN_VAULT);
     await tokenVault.withdraw(ethers.BigNumber.from(10).pow(decimal).mul(5), owner.address);
 
-    // const INTERNAL_ROUTER = "0x1959DDC34A12385829F7173Dbb11060ea81748Ad"
-    // const MODEL_FACTORY = "0xc064829C827973bCafFdbCc626c7b6044e0593e5"
+    // const INTERNAL_ROUTER = "0x94ff4Cd3145B8cdA11aC246e7172270d54c58018"
+    // const MODEL_FACTORY = "0x4E1520E3a5D4917762CA636Eff7061162F56Eb63"
     // const SWAP_ROUTER = "0x626459cF9438259ed0812D71650568306486CB00"
     // assetToken = await ethers.getContractAt("ERC20Sample", ASSET_ERC20);
     // decimal = await assetToken.decimals();

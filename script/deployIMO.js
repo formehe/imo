@@ -19,18 +19,18 @@ const { deployAndProxyContract,deployAndCloneContract} = require("../tests/utils
 // {name: "TokenVault", address: "0x8258C2C45B4ad9bEa8AD62bf4Cfa470B3B9B2ca7"},
 
 let   deployedContracts = [
-    {name: "ProxyAdmin", address: "0x384911C395e99C94e9c2eB9e66343d2129348A89"},
-    {name: "InternalFactory", address: "0x7821dC1997ea30158965E80f85eC37A0CfE295C2"},
-    {name: "InternalRouter", address: "0x1959DDC34A12385829F7173Dbb11060ea81748Ad"},
-    {name: "ModelToken", address: "0xC685404bf3F6379E4405633a2109B9A4C6F5ee45"},
-    {name: "ModelLockToken", address: "0x763d6fA3DDFEF3A8deA7415C9eE7c0dE30817Eda"},
-    {name: "Staking", address: "0xFdC6cd9b538660E8Fae553797053eE14D05219A2"},
-    {name: "Reward", address: "0xD87ef6Be1e3944E88e50A6e0fd60c8Dc62632236"},
-    {name: "Airdrop", address: "0xF85339df25a863b779CE517E8808cb1709d710AA"},
-    {name: "ModelFactory", address: "0xc064829C827973bCafFdbCc626c7b6044e0593e5"},
-    {name: "IMOEntry", address: "0x48FE208375824005E86f270C3a651642D29909A7"},
-    {name: "TokenVault", address: "0x9aa689C6312bde5A32bf2A681E01DD887762895C"},
-    {name: "Redeem", address: "0xA792B6ff37854DF1F674252576A47eea7F6e5aCd"},
+    {name: "ProxyAdmin", address: "0xc3600232936F933BA530d121A9c286c0459c47e7"},
+    {name: "InternalFactory", address: "0x9a636bd4A969c2A36035BB3D5397e1A6AFAd2228"},
+    {name: "InternalRouter", address: "0x94ff4Cd3145B8cdA11aC246e7172270d54c58018"},
+    {name: "ModelToken", address: "0x1BCe45ebdD26Ad053E52f6c50F4e3Ca7617Db4f8"},
+    {name: "ModelLockToken", address: "0x7E658bE8ca9E0F1120cCaEdDe1cB155f9e5ad3C7"},
+    {name: "Staking", address: "0x350181C5917dc5Dce4f4fCa331c7a246B218a450"},
+    {name: "Reward", address: "0xCC5229392e6B9fB5B9E30f0c5d37Cedcf70Bd4f8"},
+    {name: "Airdrop", address: "0x3c0e60D4188d426496359275EE3811026c35D1Ac"},
+    {name: "ModelFactory", address: "0x4E1520E3a5D4917762CA636Eff7061162F56Eb63"},
+    {name: "IMOEntry", address: "0x50b77eA763832FB6Ff4C089A81f99893aA728f5A"},
+    {name: "TokenVault", address: "0xA9E3eb7Dbc675A3cF9fef5770Ea800f20211E65d"},
+    {name: "Redeem", address: "0x541DA870291251cf87a36A72eCD17ED5F21e816A"},
 ]
 
 async function deployWithRetry(factory, retries = 5, delay = 5000) {
@@ -76,7 +76,7 @@ function getAddressByName(name) {
 }
 
 async function main() {
-    [owner] = await ethers.getSigners();
+    [owner, platformOperator, platformAirdropOwner] = await ethers.getSigners();
 
     const TAX_VAULT = "0xF2EB27C06F8A4C72710765E29923Ea9b21Dea912";
     const UNISWAP_ROUTER = "0x626459cF9438259ed0812D71650568306486CB00";
@@ -86,8 +86,6 @@ async function main() {
     const MATURITY_DURATION = 315360000;// 10 years
     let   assetAddress = "0x7e5eF930DA3b4F777dA4fAfb958047A5CaAe5D8b";
     let   tokenAdmin = owner.address;
-    let   platformOperator = owner.address;
-    let   platformAirdropOwner = owner.address;
 
     //address taxVault_ = //
 
@@ -348,7 +346,7 @@ async function main() {
     if (contract === "0x") {
         console.log("ModelFactory")
         await modelFactory.initialize(modelToken.address, modelLockToken.address, rewardToken.address, 
-            stakingToken.address, platformOperator, assetAddress, 1/* next id */, airdropToken.address, platformAirdropOwner)
+            stakingToken.address, platformOperator.address, assetAddress, 1/* next id */, airdropToken.address, platformAirdropOwner.address)
         await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
         await modelFactory.setTokenAdmin(tokenAdmin)
         await modelFactory.setUniswapRouter(UNISWAP_ROUTER)

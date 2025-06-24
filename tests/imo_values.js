@@ -159,13 +159,60 @@ describe("IMOEntry Contract", function () {
     // await expect(imoEntry.unwrapToken(tokenAddress, [addr1.address])).to.be.revertedWith("Token is not graduated yet")
 
     tx = await imoEntry.connect(admin).buy(ethers.BigNumber.from(10).pow(decimal).mul(1000), tokenAddress);
-    const receipt = await tx.wait(); 
+    let receipt = await tx.wait();
     const logs = receipt.events.find(e => e.address === modelFactory.address);
 
     application = await modelFactory.getApplication(logs.data)
     modelToken = await ethers.getContractAt("ModelToken", application.token)
-    await imoEntry.unwrapToken(tokenAddress, [admin.address])
-    await modelToken.connect(admin).transfer(UNISWAP_ROUTER, 100)
-    await modelToken.distributeTaxTokens()
+    await imoEntry.unwrapToken(tokenAddress, [addr1.address])
+    await modelToken.connect(addr1).transfer(UNISWAP_ROUTER, 100)
+    swapRouter = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+
+    staking = await ethers.getContractAt("Staking", application.stakeToken);
+    modelToken = await ethers.getContractAt("ModelToken", application.token);
+    rewardToken = await ethers.getContractAt("Reward", application.rewardToken);
+    airdrop = await ethers.getContractAt("Airdrop", application.airdropToken);
+
+    //stake
+    await modelToken.connect(addr1).approve(application.stakeToken, ethers.constants.MaxUint256);
+    await staking.connect(addr1).stake(ethers.BigNumber.from(10).pow(decimal).mul(1000000));
+
+    //swap
+    amount = ethers.BigNumber.from(10).pow(decimal).mul(100000)
+    await assetToken.connect(admin).approve(UNISWAP_ROUTER, amount);
+    await swapRouter.connect(admin).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amount,
+        0, // accept any amount of TOP
+        [assetToken.address, application.token],
+        owner.address,
+        ethers.constants.MaxUint256
+    );
+
+    //reward
+    await rewardToken.distributeTaxTokens();
+    await ethers.provider.send("evm_increaseTime", [60 * 60 * 24]); // Advance 1 day
+    await ethers.provider.send("evm_mine");
+    balanceOf = await assetToken.balanceOf(addr1.address);
+    await staking.connect(addr1).claimReward();
+    expect(await assetToken.balanceOf(addr1.address)).to.be.gt(balanceOf);
+
+    //airdrop
+    recipients = [withdrawer.address, platformOwner.address];
+    amounts = [ethers.utils.parseEther("100"), ethers.utils.parseEther("200")];
+    
+    const description = "Test Airdrop";
+    tx = await airdrop.connect(addr1).proposeAirdrop(
+      recipients, amounts, description
+    );
+    
+    receipt = await tx.wait();
+    proposalId = receipt.events[0].args.proposalId;
+    await airdrop.connect(platformOwner).confirmAirdrop(proposalId);
+    await airdrop.connect(addr1).executeAirdrop(
+        recipients, amounts, description
+    );
+    
+    expect(await modelToken.balanceOf(withdrawer.address)).to.equal(amounts[0]);
+    expect(await modelToken.balanceOf(platformOwner.address)).to.equal(amounts[1]);
   });
 });

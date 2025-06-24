@@ -23,6 +23,15 @@ const networks = {
     ],
   },
 
+  eth_mainnet: {
+    url: "https://ethereum-rpc.publicnode.com",
+    blockGasLimit: 200000000,
+    allowUnlimitedContractSize: true,
+    accounts: [
+      "0x2aeac2838831304122454658c1a0bc64278d0d4ccef937e7004d192e085739a6",
+    ],
+  },
+
   hecoTest: {
     url: "https://http-testnet.hecochain.com",
     blockGasLimit: 200000000,
@@ -46,31 +55,17 @@ const networks = {
   topTest2: {
     url: "http://159.135.194.94:28080",
     // blockGasLimit: 200000000,
-    gas: 3000000,
+    // gas:10000000,
     allowUnlimitedContractSize: true,
     chainId: 1023,
     accounts: [
-      `0x54639e47984fafe6355316dc381a616c838e6acf846869001868b809b6158f5f`,
-      `0x4edf73c3fb18df03994640f1f0156103accc327bd4d8a8e497e969733e87e151`,
-      `0x73cdcb64d2b8fc34c9778c34219a8a2bf95537c5854d0255f8712b3161901924`,
-      `0x6537318dcecc07ecc3c0b99558f4a7b5d5a50b6c4d7fed8c75112919a473700a`,
+      `0x6c6441df0f25df1997842cbf18ff44b785a11681bed0bf77f80678de9014de36`,
+      `0x67753e906dc2f62930fc8628aa09dca0f3aea4319172019995e22e51c7bdd780`,
+      `0x68ed5c937c7e78d679f3447358a8cafb3808ddcaa67b44994b1eb98e0fed720c`,
     ],
+    timeout: 1200000,
   },
 
-  hardhat: {
-    forking: {
-      url: "http://159.135.194.94:28080",
-      enabled: true,
-      // 添加回调函数
-      forkingCallback: (forkingData) => {
-        console.log("分叉状态:", forkingData);
-      },
-    },
-    loggingEnabled: true,
-    accounts: {
-      mnemonic: "test test test test test test test test test test test junk",
-    },
-  },
 
   localhost: {
     // chainId: 1,

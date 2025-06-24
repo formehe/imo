@@ -146,14 +146,20 @@ describe("IMOEntry Contract", function () {
     await assetToken.connect(addr1).approve(imoEntry.address, amount1);
     await assetToken.connect(admin).approve(internalRouter.address, amount1);
 
+    // launch IMO
     await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 0, 1)
     let tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.BigNumber.from(10).pow(decimal).mul(1));
     await tx.wait();
 
     const tokenAddress = (await imoEntry.tokenInfos(0)).toString();
-    internalPair = await internalFactory.getPair(tokenAddress, assetToken.address);
+    internalPairAddress = await internalFactory.getPair(tokenAddress, assetToken.address);
+    expect(internalPairAddress).to.equal((await imoEntry.tokenInfo(tokenAddress)).pair);
     internalToken = await ethers.getContractAt("InternalToken", tokenAddress);
+    internalPair = await ethers.getContractAt("IInternalPair", internalPairAddress);
+    let reserves = await internalPair.getReserves();
+    console.log("Internal price", (reserves[0].div(reserves[1])).toString());
 
+    // buy
     await assetToken.connect(addr1).approve(internalRouter.address, ethers.BigNumber.from(10).pow(decimal).mul(40000000));
     await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(30000000), tokenAddress);
     // await expect(imoEntry.unwrapToken(tokenAddress, [addr1.address])).to.be.revertedWith("Token is not graduated yet")
@@ -163,7 +169,17 @@ describe("IMOEntry Contract", function () {
     const logs = receipt.events.find(e => e.address === modelFactory.address);
 
     application = await modelFactory.getApplication(logs.data)
+    swapPair = await ethers.getContractAt("IUniswapV2Pair", application.lp);
+    reserves = await swapPair.getReserves();
+    token0 = await swapPair.token0();
+    if (token0 == application.token) {
+      console.log("swap price", (reserves.reserve0.div(reserves.reserve1)).toString());
+    } else {
+      console.log("swap price", (reserves.reserve1.div(reserves.reserve0)).toString());
+    }
     modelToken = await ethers.getContractAt("ModelToken", application.token)
+
+    // transfer from internal router to uniswap router
     await imoEntry.unwrapToken(tokenAddress, [addr1.address])
     await modelToken.connect(addr1).transfer(UNISWAP_ROUTER, 100)
     swapRouter = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);

@@ -88,9 +88,9 @@ contract ModelToken is
 
         _processSupplyParams(supplyParams);
 
-        uint256 lpSupply = supplyParams.lpSupply * (10 ** decimals());
-        uint256 vaultSupply = supplyParams.vaultSupply * (10 ** decimals());
-        uint256 reserveSupply = supplyParams.reserveSupply * (10 ** decimals());
+        uint256 lpSupply = supplyParams.lpSupply;
+        uint256 vaultSupply = supplyParams.vaultSupply;
+        uint256 reserveSupply = supplyParams.reserveSupply;
 
         botProtectionDurationInSeconds = supplyParams
             .botProtectionDurationInSeconds;

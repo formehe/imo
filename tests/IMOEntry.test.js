@@ -290,7 +290,7 @@ describe("IMOEntry Contract", function () {
     await assetToken.connect(feeTo).approve(redeem.address, ethers.BigNumber.from(10).pow(decimal).mul(100))
 
     await expect(redeem.connect(feeTo).redeemAndBurn(application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), 1)).
-      to.emit(redeem, "RedeemedAndBurned").withArgs(feeTo.address, application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), ethers.BigNumber.from("83717558264728289424"));
+      to.emit(redeem, "RedeemedAndBurned").withArgs(feeTo.address, application.token, ethers.BigNumber.from(10).pow(decimal).mul(100), ethers.BigNumber.from("83717559435144208877"));
 
     await modelToken.connect(admin).approve(feeTo.address, ethers.BigNumber.from(10).pow(decimal).mul(100))
     await modelToken.connect(feeTo).burnFrom(admin.address, 100)

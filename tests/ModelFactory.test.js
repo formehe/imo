@@ -449,9 +449,8 @@ describe("ModelFactory Contract", function () {
     );
 
     // Set up token supply parameters
-    const uint = await assetToken.decimals();
-    const totalSupply = ethers.utils.parseEther("10000").div(BigNumber.from(10).pow(uint));
-    const lpSupply = ethers.utils.parseEther("5000").div(BigNumber.from(10).pow(uint));
+    const totalSupply = ethers.utils.parseEther("10000");
+    const lpSupply = ethers.utils.parseEther("5000");
     const vault = addr1.address;
 
     await modelFactory.setTokenAdmin(addr2.address);

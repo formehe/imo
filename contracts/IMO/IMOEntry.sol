@@ -439,10 +439,10 @@ contract IMOEntry is
         address modelToken = IModelFactory(modelFactory)
             .executeBondingCurveApplication(
                 id,
-                _token.data.supply / (10 ** token_.decimals()),
-                tokenBalance / (10 ** token_.decimals()),
+                _token.data.supply,
+                tokenBalance,
                 pairAddress,
-                _token.data.reserveSupply / (10 ** token_.decimals())
+                _token.data.reserveSupply
             );
         _token.modelToken = modelToken;
 

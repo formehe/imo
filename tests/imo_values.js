@@ -157,6 +157,7 @@ describe("IMOEntry Contract", function () {
     internalToken = await ethers.getContractAt("InternalToken", tokenAddress);
     internalPair = await ethers.getContractAt("IInternalPair", internalPairAddress);
     let reserves = await internalPair.getReserves();
+    console.log("quality of intenal asset", reserves[1].toString())
     console.log("Internal price", (reserves[0].div(reserves[1])).toString());
 
     // buy
@@ -173,11 +174,14 @@ describe("IMOEntry Contract", function () {
     reserves = await swapPair.getReserves();
     token0 = await swapPair.token0();
     if (token0 == application.token) {
-      console.log("swap price", (reserves.reserve0.div(reserves.reserve1)).toString());
+      console.log("quality of uniswap asset", reserves.reserve1.toString())
+      console.log("uniswap price", (reserves.reserve0.div(reserves.reserve1)).toString());
     } else {
-      console.log("swap price", (reserves.reserve1.div(reserves.reserve0)).toString());
+      console.log("quality of uniswap asset", reserves.reserve0.toString())
+      console.log("uniswap price", (reserves.reserve1.div(reserves.reserve0)).toString());
     }
     modelToken = await ethers.getContractAt("ModelToken", application.token)
+    expect((await internalToken.balanceOf(admin.address)).add(await internalToken.balanceOf(addr1.address))).to.equal(await modelToken.balanceOf(internalPairAddress))
 
     // transfer from internal router to uniswap router
     await imoEntry.unwrapToken(tokenAddress, [addr1.address])

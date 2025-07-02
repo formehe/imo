@@ -1,7 +1,12 @@
 const { expect } = require("chai");
+const BN = require('bignumber.js');
 const { ethers,  UniswapV2Deployer} = require("hardhat");
 const { deployAndCloneContract } = require("./utils")
-const { AddressZero } = require("ethers").constants;
+
+function getRandomIntBetween100kAnd1M() {
+  return Math.floor(Math.random() * (1000000 - 100000 + 1)) + 100000;
+}
+
 describe("IMOEntry Contract", function () {
   let imoEntry, internalFactory, internalRouter, aiModels, modelFactory;
   let owner, addr1, admin, feeTo;
@@ -113,43 +118,47 @@ describe("IMOEntry Contract", function () {
     await modelFactory.grantRole(await modelFactory.BONDING_ROLE(), imoEntry.address)
     await modelFactory.setTokenAdmin(admin.address)
     await modelFactory.setUniswapRouter(UNISWAP_ROUTER)
-    await modelFactory.setTokenTaxParams(100, 100, 1000)
+    await modelFactory.setTokenTaxParams(100, 100, 1)
 
     await tokenVault.initialize(assetToken.address)
     await tokenVault.grantRole(await tokenVault.WITHDRAW_ROLE(), withdrawer.address)
 
-  
     // configure IMOEntry
     await imoEntry.initialize(
       internalFactory.address, 
-      internalRouter.address, 
-      tokenVault.address/*address feeTo_*/, 
-      500 /** fee 10**12 */, 
-      1000000000/* uint256 initialSupply_ */, 
-      6/*uint256 assetRate_ ~~100 token*/, 
-      99 /*%,uint256 maxTx_*/, 
-      modelFactory.address, 
-      // ethers.utils.parseEther("142857150"), // gradThreshold ~~10^6
-      ethers.utils.parseEther("141819150"), // gradThreshold ~~10^6
+      internalRouter.address,
+      tokenVault.address/*address feeTo_*/,
+      100000000 /** fee 10**12 */,
+      1000000000/* uint256 initialSupply_ */,
+      2/*uint256 assetRate_ ~~100 token*/,
+      99 /*%,uint256 maxTx_*/,
+      modelFactory.address,
+      // ethers.utils.parseEther("141819150"), // gradThreshold ~~10^6
+      ethers.utils.parseEther("140000000"), // gradThreshold ~~10^6
       UNISWAP_ROUTER,
       aiModels.address,
     )
-    // await imoEntry.setAssetRate(6);
-    // await imoEntry.setMaxTx(10);
-    // await modelFactory.setTokenTaxParams(100, 100, 1000)
   });
 
   it("Should allow selling and update token data and tax is not zero", async function () {
-    amount1 = ethers.BigNumber.from(10).pow(decimal).mul(40000000)
+    amount1 = ethers.BigNumber.from(10).pow(decimal).mul(200000000)
     await assetToken.transfer(addr1.address, amount1);
     await assetToken.transfer(admin.address, amount1);
     await assetToken.connect(addr1).approve(imoEntry.address, amount1);
     await assetToken.connect(admin).approve(internalRouter.address, amount1);
 
+    internalBuyTax = BN((await internalFactory.buyTax()).toString())
+    internalSellTax = BN((await internalFactory.sellTax()).toString())
+    console.log("InternalSwap buy tax:", (internalBuyTax.dividedBy(BN(100))).toFixed(2))
+    console.log("InternalSwap sell tax:", (internalSellTax.dividedBy(BN(100))).toFixed(2))
+
     // launch IMO
+    balanceOf = await assetToken.balanceOf(tokenVault.address)
     await aiModels.connect(addr1).recordModelUpload("model1", "model1", "model1", 0, 1)
-    let tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.BigNumber.from(10).pow(decimal).mul(1));
+    let tx = await imoEntry.connect(addr1).launch("model1", "TT", "Test Description", ethers.BigNumber.from(10).pow(decimal).mul(100001));
     await tx.wait();
+
+    expect(await assetToken.balanceOf(tokenVault.address)).to.gt(0)
 
     const tokenAddress = (await imoEntry.tokenInfos(0)).toString();
     internalPairAddress = await internalFactory.getPair(tokenAddress, assetToken.address);
@@ -157,30 +166,72 @@ describe("IMOEntry Contract", function () {
     internalToken = await ethers.getContractAt("InternalToken", tokenAddress);
     internalPair = await ethers.getContractAt("IInternalPair", internalPairAddress);
     let reserves = await internalPair.getReserves();
-    console.log("quality of intenal asset", reserves[1].toString())
-    console.log("Internal price", (reserves[0].div(reserves[1])).toString());
+    console.log("quality of intenalswap asset", reserves[1].toString())
+    console.log("quality of intenalswap model token", reserves[0].toString())
+    console.log("K", (reserves[0].mul(reserves[1])).toString())
+    console.log("quality of intenalswap Klast", (await internalPair.kLast()).toString())
+    let dividend = BN((ethers.BigNumber.from(10).pow(decimal).mul(reserves[0])).toString())
+    let divisor = BN((ethers.BigNumber.from(10).pow(18).mul(reserves[1])).toString())
+    console.log("InternalSwap price", (dividend.dividedBy(divisor)).toFixed(3).toString());
+
+    // await assetToken.connect(addr1).approve(internalRouter.address, ethers.BigNumber.from(10).pow(decimal).mul(40000000));
+    // await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(30000000), tokenAddress);
+    let logs;
+    for (i = 0; ; i++) {
+      randomNumber = getRandomIntBetween100kAnd1M()
+      console.log("Spent asset token amount " + i, randomNumber.toString())
+      amountTop = ethers.BigNumber.from(10).pow(decimal).mul(randomNumber)
+      await assetToken.connect(addr1).approve(internalRouter.address, amountTop);
+      tx = await imoEntry.connect(addr1).buy(amountTop, tokenAddress);
+      const receipt = await tx.wait();
+      const logsTmp = receipt.events.find(e => e.address === modelFactory.address);
+      if (logsTmp != undefined) {
+        logs = logsTmp
+        break;
+      }
+      reserves = await internalPair.getReserves();
+      console.log("K " + i, (reserves[0].mul(reserves[1])).toString())
+      console.log("quality of intenalswap asset "+ i, reserves[1].toString())
+      console.log("quality of intenalswap modelToken "+ i, reserves[0].toString())
+      console.log("quality of intenalswap Klast" + i, (await internalPair.kLast()).toString())
+      dividend = BN((ethers.BigNumber.from(10).pow(decimal).mul(reserves[0])).toString())
+      divisor = BN((ethers.BigNumber.from(10).pow(18).mul(reserves[1])).toString())
+      console.log("InternalSwap price " + i, (dividend.dividedBy(divisor)).toFixed(3).toString());
+    }
 
     // buy
-    await assetToken.connect(addr1).approve(internalRouter.address, ethers.BigNumber.from(10).pow(decimal).mul(40000000));
-    await imoEntry.connect(addr1).buy(ethers.BigNumber.from(10).pow(decimal).mul(30000000), tokenAddress);
     // await expect(imoEntry.unwrapToken(tokenAddress, [addr1.address])).to.be.revertedWith("Token is not graduated yet")
 
-    tx = await imoEntry.connect(admin).buy(ethers.BigNumber.from(10).pow(decimal).mul(1000), tokenAddress);
-    let receipt = await tx.wait();
-    const logs = receipt.events.find(e => e.address === modelFactory.address);
+    // tx = await imoEntry.connect(admin).buy(ethers.BigNumber.from(10).pow(decimal).mul(1000), tokenAddress);
+    // let receipt = await tx.wait();
+    // const logs = receipt.events.find(e => e.address === modelFactory.address);
 
     application = await modelFactory.getApplication(logs.data)
     swapPair = await ethers.getContractAt("IUniswapV2Pair", application.lp);
     reserves = await swapPair.getReserves();
     token0 = await swapPair.token0();
     if (token0 == application.token) {
+      dividend = BN((ethers.BigNumber.from(10).pow(decimal).mul(reserves.reserve0)).toString())
+      divisor = BN((ethers.BigNumber.from(10).pow(18).mul(reserves.reserve1)).toString())
       console.log("quality of uniswap asset", reserves.reserve1.toString())
-      console.log("uniswap price", (reserves.reserve0.div(reserves.reserve1)).toString());
+      console.log("quality of uniswap model token", reserves.reserve0.toString())
+      console.log("uniswap price", (dividend.dividedBy(divisor)).toFixed(3).toString());
+      console.log("market cap", ((new BN("1000000000")).multipliedBy(divisor).dividedBy(dividend)).toFixed(0).toString())
     } else {
+      dividend = BN((ethers.BigNumber.from(10).pow(decimal).mul(reserves.reserve1)).toString())
+      divisor = BN((ethers.BigNumber.from(10).pow(18).mul(reserves.reserve0)).toString())
       console.log("quality of uniswap asset", reserves.reserve0.toString())
-      console.log("uniswap price", (reserves.reserve1.div(reserves.reserve0)).toString());
+      console.log("quality of uniswap model token", reserves.reserve1.toString())
+      console.log("uniswap price", (dividend.dividedBy(divisor)).toFixed(3).toString());
+      console.log("market cap", ((new BN("1000000000")).multipliedBy(divisor).dividedBy(dividend)).toFixed(0).toString())
     }
     modelToken = await ethers.getContractAt("ModelToken", application.token)
+    console.log("airdrop reserved:", (await modelToken.balanceOf(application.airdropToken)).toString())
+    swapBuyTax = BN((await modelToken.projectBuyTaxBasisPoints()).toString())
+    swapSellTax = BN((await modelToken.projectSellTaxBasisPoints()).toString())
+    console.log("Uniswap buy tax:", (swapBuyTax.dividedBy(BN(10000))).toFixed(4))
+    console.log("Uniswap sell tax:", (swapSellTax.dividedBy(BN(10000))).toFixed(4))
+    console.log("Internal totoal tax", ((await assetToken.balanceOf(tokenVault.address)).sub(balanceOf)).toString())
     expect((await internalToken.balanceOf(admin.address)).add(await internalToken.balanceOf(addr1.address))).to.equal(await modelToken.balanceOf(internalPairAddress))
 
     // transfer from internal router to uniswap router
@@ -200,6 +251,7 @@ describe("IMOEntry Contract", function () {
     //swap
     amount = ethers.BigNumber.from(10).pow(decimal).mul(100000)
     await assetToken.connect(admin).approve(UNISWAP_ROUTER, amount);
+    balanceOf = await modelToken.balanceOf(owner.address)
     await swapRouter.connect(admin).swapExactTokensForTokensSupportingFeeOnTransferTokens(
         amount,
         0, // accept any amount of TOP
@@ -207,6 +259,7 @@ describe("IMOEntry Contract", function () {
         owner.address,
         ethers.constants.MaxUint256
     );
+    expect(await modelToken.balanceOf(owner.address)).to.gt(balanceOf)
 
     //reward
     await rewardToken.distributeTaxTokens();
@@ -234,5 +287,9 @@ describe("IMOEntry Contract", function () {
     
     expect(await modelToken.balanceOf(withdrawer.address)).to.equal(amounts[0]);
     expect(await modelToken.balanceOf(platformOwner.address)).to.equal(amounts[1]);
+
+    balanceOf = await modelToken.projectTaxPendingSwap()
+    await modelToken.connect(owner).transfer(admin.address, ethers.utils.parseEther("1"))
+    expect(await modelToken.projectTaxPendingSwap()).to.equal(balanceOf)
   });
 });

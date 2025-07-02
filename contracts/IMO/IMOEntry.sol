@@ -314,8 +314,7 @@ contract IMOEntry is
             specifiedToken.data.lastUpdated;
 
         uint256 liquidity = newReserveB * 2;
-        uint256 liquiditySupply = specifiedToken.data.supply - specifiedToken.data.reserveSupply;
-        uint256 mCap = (liquiditySupply * newReserveB) /
+        uint256 mCap = (specifiedToken.data.supply * newReserveB) /
             newReserveA;
         uint256 price = newReserveA / newReserveB;
         uint256 volume = duration > 86400
@@ -369,8 +368,7 @@ contract IMOEntry is
             specifiedToken.data.lastUpdated;
 
         uint256 liquidity = newReserveB * 2;
-        uint256 liquiditySupply = specifiedToken.data.supply - specifiedToken.data.reserveSupply;
-        uint256 mCap = (liquiditySupply * newReserveB) /
+        uint256 mCap = (specifiedToken.data.supply * newReserveB) /
             newReserveA;
         uint256 price = newReserveA / newReserveB;
         uint256 volume = duration > 86400

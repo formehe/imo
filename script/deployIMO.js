@@ -365,12 +365,13 @@ async function main() {
             internalFactory.address, 
             internalRouter.address, 
             tokenVault.address /*address feeTo_*/,
-            500 /** fee 10 **12 */, 
-            1000000000 /* uint256 initialSupply_ */, 
-            6 /*uint256 assetRate_, 100 top -> 10^12 liquid K*/,
+            100000000 /** fee 10 **12 */,
+            1000000000 /* uint256 initialSupply_ */,
+            2 /*uint256 assetRate_, 100 top -> 10^12 liquid K*/,
             50 /* %,uint256 maxTx_ */, 
             modelFactory.address, 
-            ethers.utils.parseEther("141819150"),// gradThreshold
+            //ethers.utils.parseEther("141819150"),// gradThreshold
+            ethers.utils.parseEther("140000000"),
             UNISWAP_ROUTER,
             AI_MODELS
           )

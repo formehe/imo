@@ -89,7 +89,7 @@ async function main() {
   console.log("ishas:", ishas);
 
   console.log("bank:", bank.signer.address);
-  await bank.updateUsdtTopRate(1, 1);
+  await bank.updateUsdtTopRate(100000, 15);
 
   const [toprate, usdtrate] = await bank.usdtToTopRate();
   console.log(

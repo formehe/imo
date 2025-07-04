@@ -5,6 +5,10 @@ async function main() {
     const ASSET_ERC20 = "0x7e5eF930DA3b4F777dA4fAfb958047A5CaAe5D8b"
     const AIMODELS = "0x4d3aec3d99d5B1Edf2C375657d0765D960175a3b"
     const MODEL_NAME = "test3"
+    // const BANK = "0x42e39867dECC4217eE13174DBD651a3C6B58E530"
+
+    // bank = await ethers.getContractAt("Bank", BANK);
+    // await bank.updateUsdtTopRate(100000, 15);
     
     aiModels = await ethers.getContractAt("AIModels", AIMODELS);
     await aiModels.recordModelUpload(MODEL_NAME, "v1.0", "v1.0", 0, 1)
